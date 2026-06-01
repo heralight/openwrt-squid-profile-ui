@@ -45,6 +45,15 @@ function callAction(action) {
     return request.get(L.url('admin/services/squid-profiles/' + action), { timeout: 30000 }).then(responseJson);
 }
 
+function loadHostHints() {
+    return Promise.race([
+        network.getHostHints().catch(function() { return {}; }),
+        new Promise(function(resolve) {
+            window.setTimeout(function() { resolve({}); }, 1500);
+        })
+    ]);
+}
+
 function notifyResult(title, data, level) {
     ui.addNotification(null, E('div', {}, [
         E('p', {}, [ title ]),
@@ -56,7 +65,7 @@ return view.extend({
     load: function() {
         return Promise.all([
             uci.load('squid_profiles'),
-            network.getHostHints().catch(function() { return {}; })
+            loadHostHints()
         ]);
     },
 
