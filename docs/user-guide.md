@@ -130,6 +130,14 @@ squid -k parse
 
 If validation fails, Squid is not reloaded and the error output is returned in LuCI.
 
+If the helper applies changes successfully, it backs up only the files whose content actually changed. Backups use a timestamped suffix such as:
+
+```text
+filename.YYYYMMDD-HHMMSS.bak
+```
+
+This applies to the generated Squid config, domain lists and map files.
+
 ## SSH Administration
 
 The recommended SSH workflow is to use the helper and `uci` tools instead of editing runtime files.

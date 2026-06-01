@@ -321,7 +321,7 @@ return view.extend({
                 ui.addNotification(null, E('p', {}, [ error ]), 'error');
                 return Promise.resolve();
             }
-            return uci.save().then(function() { return callAction('parse'); }).then(function(data) {
+            return m.save().then(function() { return callAction('parse'); }).then(function(data) {
                 notifyResult(data.success ? _('Profile validation succeeded') : _('Profile validation failed'), data, data.success ? 'info' : 'error');
             });
         };
@@ -335,7 +335,7 @@ return view.extend({
                 ui.addNotification(null, E('p', {}, [ error ]), 'error');
                 return Promise.resolve();
             }
-            return uci.save().then(function() { return uci.commit('squid_profiles'); }).then(function() { return callAction('apply'); }).then(function(data) {
+            return m.save().then(function() { return uci.commit('squid_profiles'); }).then(function() { return callAction('apply'); }).then(function(data) {
                 notifyResult(data.success ? _('Profile applied') : _('Profile apply failed'), data, data.success ? 'info' : 'error');
             });
         };

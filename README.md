@@ -167,7 +167,13 @@ If a backup for the same day already exists, the helper creates a unique suffix 
 /etc/squid/squid.conf.20260601.bak.1
 ```
 
-Before each later apply, the helper validates the generated temporary configuration, copies the current `/etc/squid/squid.conf` to a unique dated backup path, then replaces it.
+On later applies, the helper validates the generated temporary configuration first, then compares each generated file with its current on-disk version. It backs up only files whose content changes, using the format:
+
+```text
+nomdufichier.YYYYMMDD-HHMMSS.bak
+```
+
+That applies to `/etc/squid/squid.conf`, `/etc/squid/domains/*.txt` and `/etc/squid/maps/*.conf`.
 
 The helper then writes a Squid skeleton compatible with generated profile ACLs. The UI and helper report the backup path, directories and generated files in their command output.
 

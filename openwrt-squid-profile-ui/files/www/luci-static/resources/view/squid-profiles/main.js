@@ -67,14 +67,21 @@ return view.extend({
         var selectedVlan = window.localStorage.getItem(filterKey) || '';
         var selectedSort = window.localStorage.getItem(sortKey) || 'ip';
         var profiles = [];
+        var profileNamesById = {};
+        var profileIdsByName = {};
         var networks = [];
         var hostsByIp = {};
         var hostsBySection = {};
 
         uci.sections('squid_profiles', 'profile', function(s) {
+            var sectionId = s['.name'];
             var name = s.name || s['.name'];
             if (name)
                 profiles.push(name);
+            if (sectionId)
+                profileNamesById[sectionId] = name || sectionId;
+            if (name)
+                profileIdsByName[name] = sectionId;
         });
 
         uci.sections('squid_profiles', 'network', function(s) {
@@ -178,11 +185,20 @@ return view.extend({
         assigned.multiple = true;
         assigned.size = Math.min(Math.max(profiles.length, 3), 8);
         profiles.forEach(function(profile) { assigned.value(profile); });
+        assigned.cfgvalue = function(sectionId) {
+            var host = hostsBySection[sectionId];
+            var values = host ? (Array.isArray(host.profiles) ? host.profiles : []) : [];
+            return values.map(function(value) {
+                return profileNamesById[value] || value;
+            });
+        };
         assigned.write = function(sectionId, value) {
             var host = hostsBySection[sectionId];
             if (!host || !host.covered)
                 throw new Error(_('IP address is outside the networks covered by Squid.'));
-            uci.set('squid_profiles', sectionId, 'profile', Array.isArray(value) ? value : (value ? [ value ] : []));
+            uci.set('squid_profiles', sectionId, 'profile', (Array.isArray(value) ? value : (value ? [ value ] : [])).map(function(profile) {
+                return profileIdsByName[profile] || profile;
+            }));
         };
         assigned.remove = function(sectionId) { uci.unset('squid_profiles', sectionId, 'profile'); };
 
@@ -192,7 +208,7 @@ return view.extend({
         validate.inputstyle = 'apply';
         validate.description = _('Run squid -k parse before saving anything.');
         validate.onclick = function() {
-            return uci.save().then(function() { return callAction('parse'); }).then(function(data) {
+            return m.save().then(function() { return callAction('parse'); }).then(function(data) {
                 notifyResult(data.success ? _('Validation succeeded') : _('Validation failed'), data, data.success ? 'info' : 'error');
             });
         };
@@ -200,7 +216,7 @@ return view.extend({
         apply.inputstyle = 'save';
         apply.description = _('Validate then apply the current Squid profile configuration.');
         apply.onclick = function() {
-            return uci.save().then(function() { return uci.commit('squid_profiles'); }).then(function() { return callAction('apply'); }).then(function(data) {
+            return m.save().then(function() { return uci.commit('squid_profiles'); }).then(function() { return callAction('apply'); }).then(function(data) {
                 notifyResult(data.success ? _('Configuration applied') : _('Apply failed'), data, data.success ? 'info' : 'error');
             });
         };

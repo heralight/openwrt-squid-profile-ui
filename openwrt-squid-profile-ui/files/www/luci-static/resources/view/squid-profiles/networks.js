@@ -56,7 +56,7 @@ return view.extend({
         validate.inputstyle = 'apply';
         validate.description = _('Run squid -k parse before applying network changes.');
         validate.onclick = function() {
-            return uci.save().then(function() { return callAction('parse'); }).then(function(data) {
+            return m.save().then(function() { return callAction('parse'); }).then(function(data) {
                 notifyResult(data.success ? _('Validation succeeded') : _('Validation failed'), data, data.success ? 'info' : 'error');
             });
         };
@@ -64,7 +64,7 @@ return view.extend({
         apply.inputstyle = 'save';
         apply.description = _('Validate then apply the current Squid network set.');
         apply.onclick = function() {
-            return uci.save().then(function() { return uci.commit('squid_profiles'); }).then(function() { return callAction('apply'); }).then(function(data) {
+            return m.save().then(function() { return uci.commit('squid_profiles'); }).then(function() { return callAction('apply'); }).then(function(data) {
                 notifyResult(data.success ? _('Configuration applied') : _('Apply failed'), data, data.success ? 'info' : 'error');
             });
         };

@@ -90,7 +90,8 @@ squid -k parse
 6. Copy the new config into place.
 7. Reconfigure Squid.
 
-If parsing fails, the helper stops and returns the full output to LuCI.
+The current implementation backs up only files whose content changes, using the format `filename.YYYYMMDD-HHMMSS.bak`.
+This applies to the generated Squid config, the per-profile domain lists and the map files. If parsing fails, the helper stops and returns the full output to LuCI.
 
 ## SSH Workflows
 
