@@ -73,14 +73,14 @@ In list mode, enter exact domains or leading-dot wildcard domains. In full-text 
 
 ```text
 allow .example.com
-deny ads.example.com
+deny blocked.example.net
 ```
 
 ## Use Cases
 
 ### 1. Home network with a guest VLAN
 
-Create a network entry for the guest subnet, then assign a restrictive profile to guest devices only.
+Use the detected OpenWrt guest network in Mapping, then assign a restrictive profile to the whole network or to selected guest devices.
 
 ### 2. Family-safe browsing policy
 

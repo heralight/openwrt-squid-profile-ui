@@ -104,7 +104,7 @@ uci show squid_profiles
 ### Edit with `uci`
 
 ```sh
-uci set squid_profiles.@profile[0].name='kids'
+uci set squid_profiles.@profile[0].name='restricted'
 uci add_list squid_profiles.@profile[0].deny_domain='example.com'
 uci commit squid_profiles
 ```

@@ -31,7 +31,6 @@ return view.extend({
         var m = new form.Map('squid_profiles', _('Squid Profiles - Networks'), _('Define IPv4 networks covered by Squid and their VLAN or LAN label.'));
         var profiles = [];
         var profileNamesById = {};
-        var profileIdsByName = {};
 
         uci.sections('squid_profiles', 'profile', function(s) {
             var sectionId = s['.name'];
@@ -40,8 +39,6 @@ return view.extend({
                 profiles.push(name);
             if (sectionId)
                 profileNamesById[sectionId] = name || sectionId;
-            if (name)
-                profileIdsByName[name] = sectionId;
         });
 
         var s = m.section(form.GridSection, 'network', _('Covered networks'));
@@ -57,7 +54,7 @@ return view.extend({
 
         var vlan = s.option(form.Value, 'vlan', _('VLAN/LAN'));
         vlan.rmempty = false;
-        vlan.placeholder = 'VLAN 31';
+        vlan.placeholder = 'LAN';
         vlan.description = _('Use the same label that appears in the main machine list.');
 
         var description = s.option(form.Value, 'description', _('Description'));
@@ -75,9 +72,7 @@ return view.extend({
             });
         };
         assigned.write = function(sectionId, value) {
-            uci.set('squid_profiles', sectionId, 'profile', (Array.isArray(value) ? value : (value ? [ value ] : [])).map(function(profile) {
-                return profileIdsByName[profile] || profile;
-            }));
+            uci.set('squid_profiles', sectionId, 'profile', Array.isArray(value) ? value : (value ? [ value ] : []));
         };
         assigned.remove = function(sectionId) {
             uci.unset('squid_profiles', sectionId, 'profile');

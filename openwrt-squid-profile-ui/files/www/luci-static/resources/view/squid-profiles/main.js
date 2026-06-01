@@ -24,11 +24,49 @@ function ipInCidr(ip, cidr) {
     return (ipInt & mask) === (netInt & mask);
 }
 
+function listValue(value) {
+    return Array.isArray(value) ? value : (value ? [ value ] : []);
+}
+
+function maskToPrefix(mask) {
+    var bits = '';
+    var parts = String(mask || '').split('.');
+    if (parts.length !== 4)
+        return null;
+    for (var i = 0; i < parts.length; i++) {
+        var n = parseInt(parts[i], 10);
+        if (isNaN(n) || n < 0 || n > 255)
+            return null;
+        bits += ('00000000' + n.toString(2)).slice(-8);
+    }
+    if (!/^1*0*$/.test(bits))
+        return null;
+    return bits.replace(/0/g, '').length;
+}
+
+function interfaceCidr(section) {
+    var ipaddr = listValue(section.ipaddr)[0] || '';
+    var netmask = listValue(section.netmask)[0] || '';
+    var prefix;
+    if (!ipaddr)
+        return '';
+    if (ipaddr.indexOf('/') > 0)
+        return ipaddr;
+    prefix = maskToPrefix(netmask);
+    return prefix === null ? '' : ipaddr + '/' + prefix;
+}
+
 function networkForIp(ip, networks) {
-    for (var i = 0; i < networks.length; i++)
-        if (ipInCidr(ip, networks[i].cidr))
-            return networks[i];
-    return null;
+    var match = null;
+    var bestPrefix = -1;
+    for (var i = 0; i < networks.length; i++) {
+        var prefix = parseInt(String(networks[i].cidr || '').split('/')[1], 10);
+        if (!isNaN(prefix) && prefix > bestPrefix && ipInCidr(ip, networks[i].cidr)) {
+            match = networks[i];
+            bestPrefix = prefix;
+        }
+    }
+    return match;
 }
 
 function responseJson(res) {
@@ -63,24 +101,30 @@ function notifyResult(title, data, level) {
     ]), level || 'info');
 }
 
+function profileSummary(values) {
+    values = listValue(values);
+    return values.length ? values.join(', ') : _('None');
+}
+
 return view.extend({
     load: function() {
         return Promise.all([
             uci.load('squid_profiles'),
+            uci.load('network').catch(function() { return null; }),
             loadLeases()
         ]);
     },
 
     render: function(data) {
-        var leasesData = data[1] || {};
+        var leasesData = data[2] || {};
         var filterKey = 'squid_profiles_vlan_filter';
         var sortKey = 'squid_profiles_sort';
         var selectedVlan = window.localStorage.getItem(filterKey) || '';
         var selectedSort = window.localStorage.getItem(sortKey) || 'ip';
         var profiles = [];
         var profileNamesById = {};
-        var profileIdsByName = {};
         var networks = [];
+        var networksByKey = {};
         var hostsByIp = {};
         var hostsBySection = {};
         var deviceSectionsByIp = {};
@@ -92,16 +136,56 @@ return view.extend({
                 profiles.push(name);
             if (sectionId)
                 profileNamesById[sectionId] = name || sectionId;
-            if (name)
-                profileIdsByName[name] = sectionId;
         });
 
         uci.sections('squid_profiles', 'network', function(s) {
-            networks.push({ cidr: s.cidr || s.subnet || '', vlan: s.vlan || '', description: s.description || '' });
+            var cidr = s.cidr || s.subnet || '';
+            var vlan = s.vlan || '';
+            if (!cidr || !vlan)
+                return;
+            networksByKey[cidr + '|' + vlan] = s['.name'];
+            networks.push({
+                section: s['.name'],
+                cidr: cidr,
+                vlan: vlan,
+                description: s.description || '',
+                source: s.source || 'custom',
+                profiles: listValue(s.profile).map(function(value) { return profileNamesById[value] || value; })
+            });
+        });
+
+        uci.sections('network', 'interface', function(s) {
+            var name = s['.name'] || '';
+            var cidr = interfaceCidr(s);
+            var vlan = name.toUpperCase();
+            var key = cidr + '|' + vlan;
+            var sectionId;
+
+            if (!cidr || name === 'loopback')
+                return;
+
+            sectionId = networksByKey[key];
+            if (!sectionId) {
+                sectionId = uci.add('squid_profiles', 'network');
+                uci.set('squid_profiles', sectionId, 'cidr', cidr);
+                uci.set('squid_profiles', sectionId, 'vlan', vlan);
+                uci.set('squid_profiles', sectionId, 'description', 'OpenWrt network ' + name);
+                uci.set('squid_profiles', sectionId, 'source', 'system');
+                networksByKey[key] = sectionId;
+                networks.push({
+                    section: sectionId,
+                    cidr: cidr,
+                    vlan: vlan,
+                    description: 'OpenWrt network ' + name,
+                    source: 'system',
+                    profiles: []
+                });
+            }
         });
 
         uci.sections('squid_profiles', 'vm', function(s) {
             var ip = s.ip || s['.name'];
+            var covered = networkForIp(ip, networks);
             if (!ip)
                 return;
             deviceSectionsByIp[ip] = s['.name'];
@@ -109,9 +193,9 @@ return view.extend({
                 section: s['.name'],
                 ip: ip,
                 name: s.name || '',
-                vlan: s.vlan || '',
-                covered: false,
-                profiles: Array.isArray(s.profile) ? s.profile : (s.profile ? [ s.profile ] : [])
+                vlan: s.vlan || (covered ? covered.vlan : ''),
+                covered: !!covered,
+                profiles: listValue(s.profile).map(function(value) { return profileNamesById[value] || value; })
             };
         });
 
@@ -136,8 +220,10 @@ return view.extend({
                 }
                 if (!host.name)
                     host.name = lease.hostname || lease.name || '';
-                if (!host.vlan && covered)
+                if (covered) {
                     host.vlan = covered.vlan;
+                    host.covered = true;
+                }
                 if (!host.section)
                     host.section = deviceSectionsByIp[ip] || uci.add('squid_profiles', 'vm');
                 deviceSectionsByIp[ip] = host.section;
@@ -162,13 +248,20 @@ return view.extend({
         });
         hostList.forEach(function(host) { hostsBySection[host.section] = host; });
 
-        var m = new form.Map('squid_profiles', _('Squid Profiles - Mapping'), _('Detected devices, VLAN/LAN coverage and multi-profile Squid assignments.'));
+        var m = new form.Map('squid_profiles', _('Squid Profiles - Mapping'), _('Map detected devices and OpenWrt LAN/VLAN networks to one or more Squid profiles.'));
+        m.tabbed = true;
 
-        var filter = m.section(form.NamedSection, 'core', 'globals', _('View'));
+        var filter = m.section(form.NamedSection, 'core', 'globals', _('Filters'));
         filter.addremove = false;
         var vf = filter.option(form.ListValue, '_vlan_filter', _('Filter by VLAN/LAN'));
+        var seenVlan = {};
         vf.value('', _('All'));
-        networks.forEach(function(n) { vf.value(n.vlan, n.vlan + ' - ' + n.cidr); });
+        networks.forEach(function(n) {
+            if (!seenVlan[n.vlan]) {
+                vf.value(n.vlan, n.vlan + ' - ' + n.cidr);
+                seenVlan[n.vlan] = true;
+            }
+        });
         vf.load = function() { return selectedVlan; };
         vf.write = function(sectionId, value) { window.localStorage.setItem(filterKey, value || ''); };
         var sf = filter.option(form.ListValue, '_sort', _('Sort by'));
@@ -178,7 +271,7 @@ return view.extend({
         sf.load = function() { return selectedSort; };
         sf.write = function(sectionId, value) { window.localStorage.setItem(sortKey, value || 'ip'); };
 
-        var s = m.section(form.GridSection, 'vm', _('Mapping'));
+        var s = m.section(form.GridSection, 'vm', _('Devices'));
         s.anonymous = true;
         s.addremove = false;
         s.nodescriptions = true;
@@ -215,18 +308,18 @@ return view.extend({
         vlan.readonly = true;
         var status = s.option(form.DummyValue, '_coverage', _('Coverage'));
         status.cfgvalue = function(sectionId) { return (hostsBySection[sectionId] || {}).covered ? _('Covered') : _('Outside covered networks'); };
+        var profileView = s.option(form.DummyValue, '_profile_summary', _('Profiles'));
+        profileView.cfgvalue = function(sectionId) { return profileSummary((hostsBySection[sectionId] || {}).profiles); };
 
         var assigned = s.option(form.MultiValue, 'profile', _('Profiles'));
-        assigned.modalonly = false;
+        assigned.modalonly = true;
         assigned.multiple = true;
         assigned.size = Math.min(Math.max(profiles.length, 3), 8);
+        assigned.description = _('Select zero, one or several profiles for this device.');
         profiles.forEach(function(profile) { assigned.value(profile); });
         assigned.cfgvalue = function(sectionId) {
             var host = hostsBySection[sectionId];
-            var values = host ? (Array.isArray(host.profiles) ? host.profiles : []) : [];
-            return values.map(function(value) {
-                return profileNamesById[value] || value;
-            });
+            return host ? listValue(host.profiles) : [];
         };
         assigned.write = function(sectionId, value) {
             var host = hostsBySection[sectionId];
@@ -234,35 +327,52 @@ return view.extend({
                 throw new Error(_('Unable to resolve the mapping row for this device.'));
             if (!host.covered)
                 throw new Error(_('IP address is outside the networks covered by Squid.'));
-            uci.set('squid_profiles', sectionId, 'profile', (Array.isArray(value) ? value : (value ? [ value ] : [])).map(function(profile) {
-                return profileIdsByName[profile] || profile;
-            }));
+            uci.set('squid_profiles', sectionId, 'profile', listValue(value));
         };
         assigned.remove = function(sectionId) { uci.unset('squid_profiles', sectionId, 'profile'); };
 
-        var networkSection = m.section(form.GridSection, 'network', _('Network mappings'));
-        networkSection.anonymous = false;
+        var networkSection = m.section(form.GridSection, 'network', _('LAN/VLAN Mappings'));
+        networkSection.anonymous = true;
         networkSection.addremove = true;
         networkSection.nodescriptions = true;
+        networkSection.sectiontitle = function(sectionId) {
+            var cidr = uci.get('squid_profiles', sectionId, 'cidr') || '';
+            var label = uci.get('squid_profiles', sectionId, 'vlan') || sectionId;
+            return label + (cidr ? ' - ' + cidr : '');
+        };
 
         var netCidr = networkSection.option(form.Value, 'cidr', _('IPv4 CIDR'));
         netCidr.rmempty = false;
         netCidr.datatype = 'cidr4';
         netCidr.placeholder = '192.168.31.0/24';
-        netCidr.description = _('Covered client subnet.');
+        netCidr.description = _('System OpenWrt networks are detected automatically; add only extra Squid coverage here.');
 
         var netVlan = networkSection.option(form.Value, 'vlan', _('VLAN/LAN'));
         netVlan.rmempty = false;
-        netVlan.placeholder = 'VLAN 31';
-        netVlan.description = _('Label used in the devices table.');
+        netVlan.placeholder = 'LAN';
+        netVlan.description = _('Use the OpenWrt network name or another clear local label.');
 
         var netDescription = networkSection.option(form.Value, 'description', _('Description'));
         netDescription.rmempty = true;
-        netDescription.description = _('Optional note for operators.');
+        netDescription.description = _('Optional operator note.');
+
+        var source = networkSection.option(form.DummyValue, 'source', _('Source'));
+        source.cfgvalue = function(sectionId) {
+            return uci.get('squid_profiles', sectionId, 'source') === 'system' ? _('OpenWrt') : _('Custom');
+        };
+
+        var netProfileView = networkSection.option(form.DummyValue, '_profile_summary', _('Profiles'));
+        netProfileView.cfgvalue = function(sectionId) {
+            return profileSummary(listValue(uci.get('squid_profiles', sectionId, 'profile')).map(function(value) {
+                return profileNamesById[value] || value;
+            }));
+        };
 
         var netProfiles = networkSection.option(form.MultiValue, 'profile', _('Profiles'));
+        netProfiles.modalonly = true;
         netProfiles.multiple = true;
         netProfiles.size = Math.min(Math.max(profiles.length, 3), 8);
+        netProfiles.description = _('Select profiles that apply to the whole LAN/VLAN network.');
         profiles.forEach(function(profile) { netProfiles.value(profile); });
         netProfiles.cfgvalue = function(sectionId) {
             var values = uci.get('squid_profiles', sectionId, 'profile');
@@ -271,9 +381,7 @@ return view.extend({
             });
         };
         netProfiles.write = function(sectionId, value) {
-            uci.set('squid_profiles', sectionId, 'profile', (Array.isArray(value) ? value : (value ? [ value ] : [])).map(function(profile) {
-                return profileIdsByName[profile] || profile;
-            }));
+            uci.set('squid_profiles', sectionId, 'profile', listValue(value));
         };
         netProfiles.remove = function(sectionId) {
             uci.unset('squid_profiles', sectionId, 'profile');
@@ -291,7 +399,7 @@ return view.extend({
         };
         var apply = actions.option(form.Button, '_apply', _('Apply'));
         apply.inputstyle = 'save';
-        apply.description = _('Validate then apply the current Squid profile configuration.');
+        apply.description = _('Save UCI changes, validate Squid, then reconfigure Squid.');
         apply.onclick = function() {
             return m.save().then(function() { return uci.commit('squid_profiles'); }).then(function() { return callAction('apply'); }).then(function(data) {
                 notifyResult(data.success ? _('Configuration applied') : _('Apply failed'), data, data.success ? 'info' : 'error');
@@ -299,10 +407,10 @@ return view.extend({
         };
         var help = actions.option(form.Button, '_help', _('Quick tip'));
         help.inputstyle = 'reset';
-        help.description = _('Only covered IPs can receive profiles. Filter by VLAN to narrow the list.');
+        help.description = _('OpenWrt networks appear automatically. Use LAN/VLAN mappings to assign profiles to a whole network.');
         help.onclick = function() {
             ui.addNotification(null, E('p', {}, [
-                _('Select a covered network, then assign one or more profiles. Uncovered hosts stay read-only.')
+                _('Edit a device row for per-IP profiles, or edit a LAN/VLAN row for profiles inherited by the whole network.')
             ]), 'info');
             return Promise.resolve();
         };

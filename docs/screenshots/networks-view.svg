@@ -3,7 +3,7 @@
   <rect x="0" y="0" width="1440" height="72" fill="#15202b"/>
   <text x="32" y="44" fill="#ffffff" font-family="Arial, Helvetica, sans-serif" font-size="26" font-weight="700">Squid Profiles</text>
   <rect x="32" y="104" width="1376" height="760" rx="12" fill="#ffffff" stroke="#d8dde3"/>
-  <text x="64" y="148" fill="#15202b" font-family="Arial, Helvetica, sans-serif" font-size="20" font-weight="700">Covered networks</text>
+  <text x="64" y="148" fill="#15202b" font-family="Arial, Helvetica, sans-serif" font-size="20" font-weight="700">LAN/VLAN mappings</text>
   <rect x="64" y="176" width="260" height="36" rx="6" fill="#e7eef7"/>
   <text x="82" y="199" fill="#224466" font-family="Arial, Helvetica, sans-serif" font-size="13" font-weight="700">Quick tip</text>
   <rect x="64" y="236" width="1312" height="48" fill="#f0f3f6"/>
@@ -13,15 +13,15 @@
   <rect x="64" y="284" width="1312" height="64" fill="#ffffff"/>
   <text x="84" y="322" fill="#15202b" font-family="Arial, Helvetica, sans-serif" font-size="14">192.168.1.0/24</text>
   <text x="356" y="322" fill="#15202b" font-family="Arial, Helvetica, sans-serif" font-size="14">LAN</text>
-  <text x="640" y="322" fill="#5b6570" font-family="Arial, Helvetica, sans-serif" font-size="14">Default LAN sample network</text>
+  <text x="640" y="322" fill="#5b6570" font-family="Arial, Helvetica, sans-serif" font-size="14">OpenWrt network lan</text>
   <rect x="64" y="348" width="1312" height="64" fill="#fbfcfd"/>
   <text x="84" y="386" fill="#15202b" font-family="Arial, Helvetica, sans-serif" font-size="14">192.168.30.0/24</text>
-  <text x="356" y="386" fill="#15202b" font-family="Arial, Helvetica, sans-serif" font-size="14">VLAN 30</text>
-  <text x="640" y="386" fill="#5b6570" font-family="Arial, Helvetica, sans-serif" font-size="14">Sample VLAN 30 network</text>
+  <text x="356" y="386" fill="#15202b" font-family="Arial, Helvetica, sans-serif" font-size="14">GUEST</text>
+  <text x="640" y="386" fill="#5b6570" font-family="Arial, Helvetica, sans-serif" font-size="14">OpenWrt network guest</text>
   <rect x="64" y="412" width="1312" height="64" fill="#ffffff"/>
   <text x="84" y="450" fill="#15202b" font-family="Arial, Helvetica, sans-serif" font-size="14">192.168.31.0/24</text>
-  <text x="356" y="450" fill="#15202b" font-family="Arial, Helvetica, sans-serif" font-size="14">VLAN 31</text>
-  <text x="640" y="450" fill="#5b6570" font-family="Arial, Helvetica, sans-serif" font-size="14">Sample VLAN 31 network</text>
+  <text x="356" y="450" fill="#15202b" font-family="Arial, Helvetica, sans-serif" font-size="14">CUSTOM</text>
+  <text x="640" y="450" fill="#5b6570" font-family="Arial, Helvetica, sans-serif" font-size="14">Additional Squid coverage</text>
   <rect x="1090" y="176" width="136" height="36" rx="6" fill="#e7eef7"/>
   <text x="1128" y="199" fill="#224466" font-family="Arial, Helvetica, sans-serif" font-size="13" font-weight="700">Validate</text>
   <rect x="1234" y="176" width="142" height="36" rx="6" fill="#2f6fed"/>

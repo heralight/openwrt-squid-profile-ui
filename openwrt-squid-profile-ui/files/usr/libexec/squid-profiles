@@ -80,16 +80,6 @@ write_mime_conf() {
 	fi
 }
 
-remove_sample_machine() {
-	if uci -q get "$CONFIG.vm_192_168_1_10" >/dev/null 2>&1 \
-		&& [ "$(uci -q get "$CONFIG.vm_192_168_1_10.ip" || true)" = "192.168.1.10" ] \
-		&& [ "$(uci -q get "$CONFIG.vm_192_168_1_10.name" || true)" = "sample-device" ]; then
-		uci delete "$CONFIG.vm_192_168_1_10"
-		uci commit "$CONFIG"
-		log "Removed legacy sample machine: $CONFIG.vm_192_168_1_10"
-	fi
-}
-
 init_tree() {
 	mkdir -p "$SQUID_DIR" "$DOMAINS_DIR" "$MAPS_DIR"
 	log "Ensured directory: $SQUID_DIR"
@@ -107,7 +97,6 @@ init_tree() {
 	fi
 
 	write_mime_conf
-	remove_sample_machine
 
 	if [ ! -f "$SQUID_CONF" ]; then
 		write_skeleton "$SQUID_CONF"
@@ -249,7 +238,7 @@ validate_uci() {
 
 write_domain_file() {
 	file="$1"; shift; : > "$file"
-	for domain in "$@"; do [ -n "$domain" ] && printf '.%s\n' "$domain" >> "$file"; done
+	for domain in "$@"; do [ -n "$domain" ] && printf '%s\n' "$domain" >> "$file"; done
 }
 
 write_map_file() {

@@ -139,7 +139,7 @@ opkg install ./luci-app-squid-profiles_*.ipk
 
 The package depends on LuCI, rpcd, UCI and Squid. After installation, open LuCI and go to Services -> Squid Profiles.
 
-The uci-defaults script also seeds a minimal sample configuration when `squid_profiles.core` does not exist: three covered networks, two profiles and one sample machine. Existing non-empty plugin configuration is preserved.
+The uci-defaults script only creates the plugin core section when `squid_profiles.core` does not exist. It does not seed fake profiles, fake networks or fake devices. The Mapping page reads existing OpenWrt LAN/VLAN interfaces and DHCP leases, then stores only the Squid profile assignments managed by the plugin.
 
 User-oriented documentation lives in [`docs/user-guide.md`](docs/user-guide.md). It includes installation steps, common workflows and reference screenshots.
 Technical notes live in [`docs/technical.md`](docs/technical.md). It explains the UCI schema, runtime files and SSH workflows.

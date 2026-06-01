@@ -19,15 +19,15 @@
   <text x="1016" y="242" fill="#15202b" font-family="Arial, Helvetica, sans-serif" font-size="13" font-weight="700">Coverage</text>
   <rect x="64" y="260" width="1312" height="60" fill="#ffffff"/>
   <text x="84" y="296" fill="#15202b" font-family="Arial, Helvetica, sans-serif" font-size="14">192.168.1.10</text>
-  <text x="224" y="296" fill="#15202b" font-family="Arial, Helvetica, sans-serif" font-size="14">sample-device</text>
+  <text x="224" y="296" fill="#15202b" font-family="Arial, Helvetica, sans-serif" font-size="14">laptop</text>
   <text x="452" y="296" fill="#15202b" font-family="Arial, Helvetica, sans-serif" font-size="14">LAN</text>
-  <text x="656" y="296" fill="#15202b" font-family="Arial, Helvetica, sans-serif" font-size="14">default, kids</text>
+  <text x="656" y="296" fill="#15202b" font-family="Arial, Helvetica, sans-serif" font-size="14">restricted</text>
   <text x="1016" y="296" fill="#1b7f4a" font-family="Arial, Helvetica, sans-serif" font-size="14" font-weight="700">Covered</text>
   <rect x="64" y="320" width="1312" height="60" fill="#fbfcfd"/>
   <text x="84" y="356" fill="#15202b" font-family="Arial, Helvetica, sans-serif" font-size="14">192.168.30.11</text>
   <text x="224" y="356" fill="#15202b" font-family="Arial, Helvetica, sans-serif" font-size="14">tablet</text>
-  <text x="452" y="356" fill="#15202b" font-family="Arial, Helvetica, sans-serif" font-size="14">VLAN 30</text>
-  <text x="656" y="356" fill="#15202b" font-family="Arial, Helvetica, sans-serif" font-size="14">kids</text>
+  <text x="452" y="356" fill="#15202b" font-family="Arial, Helvetica, sans-serif" font-size="14">GUEST</text>
+  <text x="656" y="356" fill="#15202b" font-family="Arial, Helvetica, sans-serif" font-size="14">restricted</text>
   <text x="1016" y="356" fill="#1b7f4a" font-family="Arial, Helvetica, sans-serif" font-size="14" font-weight="700">Covered</text>
   <rect x="64" y="380" width="1312" height="60" fill="#ffffff"/>
   <text x="84" y="416" fill="#15202b" font-family="Arial, Helvetica, sans-serif" font-size="14">192.168.99.44</text>

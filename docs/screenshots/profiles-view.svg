@@ -17,10 +17,10 @@
   <rect x="84" y="376" width="540" height="34" rx="5" fill="#ffffff" stroke="#cfd6dd"/>
   <rect x="84" y="420" width="540" height="34" rx="5" fill="#ffffff" stroke="#cfd6dd"/>
   <text x="98" y="398" fill="#5b6570" font-family="Arial, Helvetica, sans-serif" font-size="13">.example.com</text>
-  <text x="98" y="442" fill="#5b6570" font-family="Arial, Helvetica, sans-serif" font-size="13">openwrt.org</text>
+  <text x="98" y="442" fill="#5b6570" font-family="Arial, Helvetica, sans-serif" font-size="13">docs.example.net</text>
   <text x="84" y="490" fill="#15202b" font-family="Arial, Helvetica, sans-serif" font-size="15" font-weight="700">Denied domains</text>
   <rect x="84" y="512" width="540" height="34" rx="5" fill="#ffffff" stroke="#cfd6dd"/>
-  <text x="98" y="534" fill="#5b6570" font-family="Arial, Helvetica, sans-serif" font-size="13">ads.example.com</text>
+  <text x="98" y="534" fill="#5b6570" font-family="Arial, Helvetica, sans-serif" font-size="13">blocked.example.net</text>
   <rect x="720" y="320" width="620" height="430" rx="10" fill="#fbfcfd" stroke="#d8dde3"/>
   <text x="740" y="354" fill="#15202b" font-family="Arial, Helvetica, sans-serif" font-size="15" font-weight="700">Actions</text>
   <rect x="740" y="376" width="180" height="36" rx="6" fill="#e7eef7"/>
