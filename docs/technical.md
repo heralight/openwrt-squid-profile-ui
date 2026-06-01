@@ -4,6 +4,12 @@
 The editable config lives in `/etc/config/squid_profiles`.
 The runtime Squid tree lives in `/etc/squid`.
 
+LuCI navigation is split into three tabs under **Services -> Squid Profiles**:
+
+- `Profiles`: profile creation and domain rules
+- `Devices`: per-IP assignments from detected DHCP leases and saved `vm` sections
+- `LAN/VLAN Mapping`: OpenWrt network coverage and network-wide profile assignments
+
 ## Storage Schema
 
 The helper and LuCI views use four section types:
@@ -30,6 +36,10 @@ Fields:
 - `cidr`: IPv4 CIDR, for example `192.168.31.0/24`
 - `vlan`: VLAN or LAN label
 - `description`: optional text
+- `source`: optional `system` or `custom` marker used by LuCI
+- `profile`: optional UCI list of profile names assigned to the whole network
+
+The `LAN/VLAN Mapping` view reads `/etc/config/network` and creates UCI `network` rows for detected OpenWrt interfaces when they are missing. The generated Squid ACL always uses a normalized network CIDR, for example `172.30.0.2/24` is emitted as `172.30.0.0/24`.
 
 ### `profile`
 
@@ -60,6 +70,8 @@ Fields:
 - `name`: hostname if known
 - `vlan`: VLAN or LAN label
 - `profile`: UCI list of assigned profile names
+
+The `Devices` view discovers DHCP leases through LuCI RPC and overlays saved `vm` sections from `/etc/config/squid_profiles`. Device edit saves local UCI changes; validation/apply performs the final coverage and Squid parse checks.
 
 ## Runtime Artifacts
 
@@ -92,6 +104,38 @@ squid -k parse
 
 The current implementation backs up only files whose content changes, using the format `filename.YYYYMMDD-HHMMSS.bak`.
 This applies to the generated Squid config, the per-profile domain lists and the map files. If parsing fails, the helper stops and returns the full output to LuCI.
+
+## OpenWrt Package
+
+The source package lives in `openwrt-squid-profile-ui/`.
+
+Package metadata:
+
+```make
+PKG_NAME:=luci-app-squid-profiles
+PKG_VERSION:=0.1.0
+PKG_RELEASE:=2
+PKG_LICENSE:=BSD-2-Clause
+PKG_LICENSE_FILES:=LICENSE
+PKGARCH:=all
+```
+
+The package ships scripts and LuCI resources, so `Build/Compile` is empty and `Package/luci-app-squid-profiles/install` copies files from `files/` into the IPK root.
+
+Runtime dependencies:
+
+```make
++luci-base +luci-compat +luci-lua-runtime +rpcd +uci +squid
+```
+
+Run package checks in an SDK:
+
+```sh
+make package/luci-app-squid-profiles/check V=s
+make package/luci-app-squid-profiles/compile V=s
+```
+
+See [`packaging.md`](packaging.md) for the full SDK flow and Netgear WAX206 build example.
 
 ## SSH Workflows
 

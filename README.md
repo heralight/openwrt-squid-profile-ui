@@ -18,6 +18,12 @@ The package is designed for low-power OpenWrt routers: no external frontend fram
 - Global validation and apply actions, plus profile-level validate/apply buttons.
 - Mandatory `squid -k parse` before any Squid reload.
 
+LuCI exposes one application group under **Services -> Squid Profiles** with three tabs:
+
+- `Profiles`
+- `Devices`
+- `LAN/VLAN Mapping`
+
 ## Storage and Validation Model
 
 The plugin keeps its source of truth in UCI, under `/etc/config/squid_profiles`.
@@ -77,6 +83,7 @@ This creates the Squid skeleton and backups any unmanaged `/etc/squid/squid.conf
 ├── AGENTS.md
 ├── docs/
 │   ├── technical.md
+│   ├── packaging.md
 │   ├── user-guide.md
 │   └── screenshots/
 │       ├── main-view.svg
@@ -86,9 +93,11 @@ This creates the Squid skeleton and backups any unmanaged `/etc/squid/squid.conf
 ├── README.md
 ├── openwrt-squid-profile-ui/
 │   ├── Makefile
+│   ├── LICENSE
 │   └── files/
 │       ├── etc/
 │       │   ├── init.d/squid-profiles
+│       │   ├── config/squid_profiles
 │       │   └── uci-defaults/90_squid_profiles
 │       ├── usr/
 │       │   ├── lib/lua/luci/controller/squid_profiles.lua
@@ -114,10 +123,23 @@ This creates the Squid skeleton and backups any unmanaged `/etc/squid/squid.conf
 
 ## Installation on OpenWrt
 
-Build the package with the OpenWrt SDK or include `openwrt-squid-profile-ui` in a package feed. The package Makefile declares the runtime dependencies with `LUCI_DEPENDS`:
+Build the package with the OpenWrt SDK or include `openwrt-squid-profile-ui` in a package feed. The package Makefile is a normal OpenWrt source package Makefile with explicit `Package/luci-app-squid-profiles` blocks.
+
+It declares:
 
 ```make
-+luci-base +luci-compat +rpcd +uci +squid
+PKG_NAME:=luci-app-squid-profiles
+PKG_VERSION:=0.1.0
+PKG_RELEASE:=2
+PKG_LICENSE:=BSD-2-Clause
+PKG_LICENSE_FILES:=LICENSE
+PKGARCH:=all
+```
+
+Runtime dependencies are:
+
+```make
++luci-base +luci-compat +luci-lua-runtime +rpcd +uci +squid
 ```
 
 Example SDK flow:
@@ -131,6 +153,13 @@ ln -s /path/to/openwrt-squid-profile-ui/openwrt-squid-profile-ui package/feeds/c
 make package/luci-app-squid-profiles/compile V=s
 ```
 
+Recommended package checks:
+
+```sh
+make package/luci-app-squid-profiles/check V=s
+make package/luci-app-squid-profiles/check V=s FIXUP=1
+```
+
 Install the generated IPK on the router:
 
 ```sh
@@ -139,10 +168,11 @@ opkg install ./luci-app-squid-profiles_*.ipk
 
 The package depends on LuCI, rpcd, UCI and Squid. After installation, open LuCI and go to Services -> Squid Profiles.
 
-The uci-defaults script only creates the plugin core section when `squid_profiles.core` does not exist. It does not seed fake profiles, fake networks or fake devices. The Mapping page reads existing OpenWrt LAN/VLAN interfaces and DHCP leases, then stores only the Squid profile assignments managed by the plugin.
+The uci-defaults script only creates the plugin core section when `squid_profiles.core` does not exist. It does not seed fake profiles, fake networks or fake devices. The `Devices` and `LAN/VLAN Mapping` tabs read existing OpenWrt LAN/VLAN interfaces and DHCP leases, then store only the Squid profile assignments managed by the plugin.
 
 User-oriented documentation lives in [`docs/user-guide.md`](docs/user-guide.md). It includes installation steps, common workflows and reference screenshots.
 Technical notes live in [`docs/technical.md`](docs/technical.md). It explains the UCI schema, runtime files and SSH workflows.
+Packaging and WAX206 build notes live in [`docs/packaging.md`](docs/packaging.md).
 
 ## Initialization Behavior
 

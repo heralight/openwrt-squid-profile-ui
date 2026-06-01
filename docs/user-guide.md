@@ -17,8 +17,11 @@ opkg install ./luci-app-squid-profiles_*.ipk
 The package depends on LuCI, rpcd, UCI and Squid. Build it from the OpenWrt SDK with:
 
 ```sh
+make package/luci-app-squid-profiles/check V=s
 make package/luci-app-squid-profiles/compile V=s
 ```
+
+See [`packaging.md`](packaging.md) for a full SDK workflow and a Netgear WAX206 example.
 
 ### First start
 
@@ -35,11 +38,17 @@ If an existing `squid.conf` is present and not managed by the plugin, it is back
 
 ## What It Does
 
-- Lists detected machines from OpenWrt host hints and saved UCI assignments.
+- Lists detected machines from OpenWrt DHCP leases and saved UCI assignments.
 - Lets you assign one or more Squid profiles to an IP address.
-- Lets you define covered networks with IPv4 CIDR and VLAN or LAN labels.
+- Lets you map OpenWrt LAN/VLAN networks or additional custom CIDRs to one or more profiles.
 - Lets you create Squid profiles with either list-based editing or a full-text rules mode.
 - Validates the generated Squid configuration with `squid -k parse` before applying changes.
+
+The LuCI application appears under **Services -> Squid Profiles** with three tabs:
+
+- `Profiles`
+- `Devices`
+- `LAN/VLAN Mapping`
 
 ## Data Model
 
@@ -80,7 +89,7 @@ deny blocked.example.net
 
 ### 1. Home network with a guest VLAN
 
-Use the detected OpenWrt guest network in Mapping, then assign a restrictive profile to the whole network or to selected guest devices.
+Use the detected OpenWrt guest network in `LAN/VLAN Mapping`, then assign a restrictive profile to the whole network or to selected guest devices in `Devices`.
 
 ### 2. Family-safe browsing policy
 
@@ -92,13 +101,13 @@ Assign multiple profiles to a single IP when a device needs a combined policy, f
 
 ### 4. Per-VLAN policy review
 
-Filter the main machine list by VLAN or LAN label to review which devices are covered and which profiles are attached.
+Filter the `Devices` list by VLAN or LAN label to review which devices are covered and which profiles are attached.
 
 ## Screenshots
 
 The following reference screenshots are included with the repository.
 
-### Main machine list
+### Devices
 
 ![Main machine list](screenshots/main-view.svg)
 
@@ -106,16 +115,16 @@ The following reference screenshots are included with the repository.
 
 ![Profile editor](screenshots/profiles-view.svg)
 
-### Covered networks
+### LAN/VLAN Mapping
 
 ![Covered networks](screenshots/networks-view.svg)
 
 ## Suggested Workflow
 
 1. Open **Services -> Squid Profiles** in LuCI.
-2. Define covered networks first.
-3. Create one or more profiles.
-4. Assign profiles to detected machines.
+2. Create one or more profiles in `Profiles`.
+3. Review detected OpenWrt networks in `LAN/VLAN Mapping` and assign network-wide profiles if needed.
+4. Assign per-IP profiles to detected machines in `Devices`.
 5. Click **Validate configuration**.
 6. Review the Squid output.
 7. Click **Apply** only after validation succeeds.
@@ -193,4 +202,4 @@ squid -k reconfigure
 
 - The list and full-text profile modes are exclusive. Use one source of truth at a time.
 - Only IPs covered by the configured networks can receive profile assignments.
-- The plugin keeps dated backups before rewriting the main Squid configuration.
+- The plugin keeps dated backups before rewriting generated Squid files whose content changes.
