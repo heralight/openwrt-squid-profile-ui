@@ -9,13 +9,15 @@ services:
       - "3128:3128"
       - "2222:22"
     volumes:
-      - ../openwrt-squid-profile-ui/files/usr/share/luci:/usr/share/luci
-      - ../openwrt-squid-profile-ui/files/usr/share/rpcd:/usr/share/rpcd
-      - ../openwrt-squid-profile-ui/files/usr/libexec:/usr/libexec
-      - ../openwrt-squid-profile-ui/files/etc/uci-defaults:/etc/uci-defaults
-      - ../openwrt-squid-profile-ui/files/etc/init.d:/etc/init.d
+      - ../openwrt-squid-profile-ui/files/usr/share/luci/menu.d/luci-app-squid-profiles.json:/usr/share/luci/menu.d/luci-app-squid-profiles.json
+      - ../openwrt-squid-profile-ui/files/usr/share/luci/controller/squid-profiles.lua:/usr/share/luci/controller/squid-profiles.lua
+      - ../openwrt-squid-profile-ui/files/usr/share/luci/htdocs/luci-static/resources/view/squid-profiles:/usr/share/luci/htdocs/luci-static/resources/view/squid-profiles
+      - ../openwrt-squid-profile-ui/files/usr/share/rpcd/acl.d/luci-app-squid-profiles.json:/usr/share/rpcd/acl.d/luci-app-squid-profiles.json
+      - ../openwrt-squid-profile-ui/files/usr/libexec/squid-profiles:/usr/libexec/squid-profiles
+      - ../openwrt-squid-profile-ui/files/etc/uci-defaults/90_squid_profiles:/etc/uci-defaults/90_squid_profiles
+      - ../openwrt-squid-profile-ui/files/etc/init.d/squid-profiles:/etc/init.d/squid-profiles
       - ./runtime/etc-squid:/etc/squid
-      - ./runtime/config:/etc/config
+      - ./runtime/config/squid_profiles:/etc/config/squid_profiles
       - ./runtime/log:/tmp
     tty: true
     stdin_open: true

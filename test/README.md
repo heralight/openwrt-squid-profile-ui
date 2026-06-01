@@ -1,6 +1,6 @@
 # Podman test environment
 
-This directory runs an OpenWrt rootfs container with the LuCI application mounted from the working tree. Edits under `../openwrt-squid-profile-ui/files` are visible inside the container without rebuilding an IPK.
+This directory runs an OpenWrt rootfs container with the LuCI application mounted from the working tree. Plugin files are mounted individually so the base LuCI installation from the image remains available while local plugin edits are still visible without rebuilding an IPK.
 
 ## Start
 
@@ -18,13 +18,15 @@ podman exec -it openwrt-squid-profile-ui ash
 
 ## Mounted paths
 
-- `../openwrt-squid-profile-ui/files/usr/share/luci` -> `/usr/share/luci`
-- `../openwrt-squid-profile-ui/files/usr/share/rpcd` -> `/usr/share/rpcd`
-- `../openwrt-squid-profile-ui/files/usr/libexec` -> `/usr/libexec`
-- `../openwrt-squid-profile-ui/files/etc/uci-defaults` -> `/etc/uci-defaults`
-- `../openwrt-squid-profile-ui/files/etc/init.d` -> `/etc/init.d`
+- `../openwrt-squid-profile-ui/files/usr/share/luci/menu.d/luci-app-squid-profiles.json` -> `/usr/share/luci/menu.d/luci-app-squid-profiles.json`
+- `../openwrt-squid-profile-ui/files/usr/share/luci/controller/squid-profiles.lua` -> `/usr/share/luci/controller/squid-profiles.lua`
+- `../openwrt-squid-profile-ui/files/usr/share/luci/htdocs/luci-static/resources/view/squid-profiles` -> `/usr/share/luci/htdocs/luci-static/resources/view/squid-profiles`
+- `../openwrt-squid-profile-ui/files/usr/share/rpcd/acl.d/luci-app-squid-profiles.json` -> `/usr/share/rpcd/acl.d/luci-app-squid-profiles.json`
+- `../openwrt-squid-profile-ui/files/usr/libexec/squid-profiles` -> `/usr/libexec/squid-profiles`
+- `../openwrt-squid-profile-ui/files/etc/uci-defaults/90_squid_profiles` -> `/etc/uci-defaults/90_squid_profiles`
+- `../openwrt-squid-profile-ui/files/etc/init.d/squid-profiles` -> `/etc/init.d/squid-profiles`
 - `./runtime/etc-squid` -> `/etc/squid`
-- `./runtime/config` -> `/etc/config`
+- `./runtime/config/squid_profiles` -> `/etc/config/squid_profiles`
 - `./runtime/log` -> `/tmp`
 
 ## Useful commands inside the container

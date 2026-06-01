@@ -114,7 +114,7 @@ If validation fails, Squid is not reconfigured and the full command output is re
 
 ## Podman Test Environment
 
-The test environment is under `test/` and uses the official OpenWrt rootfs image:
+The test environment is under `test/` and uses the official OpenWrt rootfs image. The container runs the image default init process, while compose mounts plugin files individually so the base LuCI installation remains intact:
 
 ```sh
 podman compose -f test/compose.yml up --build
@@ -129,20 +129,7 @@ It exposes:
 2222 -> 22
 ```
 
-Mounted development paths:
-
-```text
-./openwrt-squid-profile-ui/files/usr/share/luci   -> /usr/share/luci
-./openwrt-squid-profile-ui/files/usr/share/rpcd   -> /usr/share/rpcd
-./openwrt-squid-profile-ui/files/usr/libexec      -> /usr/libexec
-./openwrt-squid-profile-ui/files/etc/uci-defaults -> /etc/uci-defaults
-./openwrt-squid-profile-ui/files/etc/init.d       -> /etc/init.d
-./test/runtime/etc-squid                          -> /etc/squid
-./test/runtime/config                             -> /etc/config
-./test/runtime/log                                -> /tmp
-```
-
-This lets you edit the plugin locally and refresh LuCI or rerun commands in the container without rebuilding the IPK.
+Mounted development paths are file-level mounts for the LuCI menu, controller, RPC ACL, helper, init script and view directory. This keeps the base LuCI installation from the image intact while local plugin edits remain visible without rebuilding the IPK.
 
 ## Debug Commands
 
