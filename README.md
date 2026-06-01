@@ -80,6 +80,8 @@ This creates the Squid skeleton and backups any unmanaged `/etc/squid/squid.conf
 
 ```text
 .
+├── .github/
+│   └── workflows/openwrt-package.yml
 ├── AGENTS.md
 ├── docs/
 │   ├── technical.md
@@ -89,8 +91,13 @@ This creates the Squid skeleton and backups any unmanaged `/etc/squid/squid.conf
 │       ├── main-view.svg
 │       ├── networks-view.svg
 │       └── profiles-view.svg
+├── feeds.conf.example
 ├── LICENSE
 ├── README.md
+├── packages/
+│   └── luci-app-squid-profiles -> ../openwrt-squid-profile-ui
+├── scripts/
+│   └── openwrt-opkg-index.sh
 ├── openwrt-squid-profile-ui/
 │   ├── Makefile
 │   ├── LICENSE
@@ -173,6 +180,12 @@ The uci-defaults script only creates the plugin core section when `squid_profile
 User-oriented documentation lives in [`docs/user-guide.md`](docs/user-guide.md). It includes installation steps, common workflows and reference screenshots.
 Technical notes live in [`docs/technical.md`](docs/technical.md). It explains the UCI schema, runtime files and SSH workflows.
 Packaging and WAX206 build notes live in [`docs/packaging.md`](docs/packaging.md).
+
+The repository also includes:
+
+- `.github/workflows/openwrt-package.yml` to build SDK packages and upload package/repository artifacts.
+- `feeds.conf.example` to consume this repository as an OpenWrt feed.
+- `scripts/openwrt-opkg-index.sh` to generate `Packages`, `Packages.gz` and an optional `Packages.sig` OPKG index.
 
 ## Initialization Behavior
 
@@ -268,6 +281,16 @@ node tests/js/static_checks.js
 ```
 
 These checks are intentionally lightweight and do not replace OpenWrt SDK builds or runtime testing in the rootfs container.
+
+## Package Publication Notes
+
+OpenWrt `24.10` and older use OPKG/IPK package feeds. OpenWrt `25.12` and newer use APK package feeds. Build and publish separate feeds per OpenWrt release and target; do not mix IPK and APK formats in one feed.
+
+Official references:
+
+- OPKG package manager: <https://openwrt.org/docs/guide-user/additional-software/opkg>
+- APK package manager: <https://openwrt.org/docs/guide-user/additional-software/apk>
+- Release and repository signatures: <https://openwrt.org/docs/guide-user/security/release_signatures>
 
 ## Known Limitations
 

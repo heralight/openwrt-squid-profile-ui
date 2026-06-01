@@ -6,14 +6,20 @@ ROOT="$(CDPATH= cd -- "$(dirname -- "$0")/../.." && pwd)"
 HELPER="$ROOT/openwrt-squid-profile-ui/files/usr/libexec/squid-profiles"
 UCI_DEFAULTS="$ROOT/openwrt-squid-profile-ui/files/etc/uci-defaults/90_squid_profiles"
 INITD="$ROOT/openwrt-squid-profile-ui/files/etc/init.d/squid-profiles"
+OPKG_INDEX="$ROOT/scripts/openwrt-opkg-index.sh"
+WORKFLOW="$ROOT/.github/workflows/openwrt-package.yml"
+FEED_LINK="$ROOT/packages/luci-app-squid-profiles"
 COMPOSE="$ROOT/test/compose.yml"
 
 fail() { printf 'FAIL: %s\n' "$*" >&2; exit 1; }
 
-for script in "$HELPER" "$UCI_DEFAULTS" "$INITD"; do
-	[ -f "$script" ] || fail "missing script: $script"
+for script in "$HELPER" "$UCI_DEFAULTS" "$INITD" "$OPKG_INDEX"; do
+[ -f "$script" ] || fail "missing script: $script"
 	sh -n "$script" || fail "shell syntax failed: $script"
 done
+
+[ -f "$WORKFLOW" ] || fail "missing GitHub Actions workflow"
+[ -L "$FEED_LINK" ] || fail "missing feed symlink: $FEED_LINK"
 
 grep -q 'unique_backup_path' "$HELPER" || fail "helper does not define unique backup handling"
 grep -q 'backup_current_config' "$HELPER" || fail "helper does not back up before apply"
@@ -35,5 +41,14 @@ grep -q 'view/squid-profiles:/www/luci-static/resources/view/squid-profiles' "$C
 grep -q 'squid-profiles:/etc/init.d/squid-profiles' "$COMPOSE" || fail "compose does not mount plugin init script"
 grep -q './runtime/etc-squid:/etc/squid' "$COMPOSE" || fail "compose does not mount Squid runtime tree"
 grep -q './runtime/config:/etc/config' "$COMPOSE" || fail "compose does not mount OpenWrt config runtime tree"
+
+grep -q 'ipkg-make-index.sh' "$OPKG_INDEX" || fail "OPKG index script does not use SDK ipkg-make-index.sh"
+grep -q 'Packages.sig' "$OPKG_INDEX" || fail "OPKG index script does not produce Packages.sig"
+grep -q 'usign' "$OPKG_INDEX" || fail "OPKG index script does not sign with usign"
+
+grep -q 'make "package/${PACKAGE_NAME}/compile" V=s' "$WORKFLOW" || fail "workflow does not compile package"
+grep -q 'make package/index V=s' "$WORKFLOW" || fail "workflow does not generate package index"
+grep -q '*.apk' "$WORKFLOW" || fail "workflow does not collect APK artifacts"
+grep -q '*.ipk' "$WORKFLOW" || fail "workflow does not collect IPK artifacts"
 
 printf 'shell static checks passed\n'

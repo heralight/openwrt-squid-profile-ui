@@ -137,6 +137,34 @@ make package/luci-app-squid-profiles/compile V=s
 
 See [`packaging.md`](packaging.md) for the full SDK flow and Netgear WAX206 build example.
 
+## Feed and CI Publishing
+
+The repository can be consumed as an OpenWrt feed through `feeds.conf.example`.
+The feed package entry is exposed at:
+
+```text
+packages/luci-app-squid-profiles -> ../openwrt-squid-profile-ui
+```
+
+GitHub Actions workflow:
+
+```text
+.github/workflows/openwrt-package.yml
+```
+
+The workflow downloads an OpenWrt SDK, runs package metadata checks, compiles the package, runs `make package/index`, and uploads package artifacts. It collects both `*.ipk` and `*.apk` so it can work with OPKG-based and APK-based SDKs.
+
+For OPKG feeds, `scripts/openwrt-opkg-index.sh` generates:
+
+```text
+Packages
+Packages.gz
+Packages.manifest
+Packages.sig
+```
+
+`Packages.sig` is produced only when a usign secret key is provided. Keep OPKG usign keys separate from APK feed signing keys.
+
 ## SSH Workflows
 
 ### Inspect

@@ -1,0 +1,105 @@
+name: OpenWrt package
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      openwrt_release:
+        description: OpenWrt release or snapshots
+        required: true
+        default: 24.10.5
+      target:
+        description: OpenWrt target
+        required: true
+        default: mediatek
+      subtarget:
+        description: OpenWrt subtarget
+        required: true
+        default: mt7622
+      sdk_filename:
+        description: Exact SDK archive filename
+        required: true
+        default: openwrt-sdk-24.10.5-mediatek-mt7622_gcc-13.3.0_musl.Linux-x86_64.tar.zst
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    env:
+      OPENWRT_RELEASE: ${{ inputs.openwrt_release || '24.10.5' }}
+      OPENWRT_TARGET: ${{ inputs.target || 'mediatek' }}
+      OPENWRT_SUBTARGET: ${{ inputs.subtarget || 'mt7622' }}
+      SDK_FILENAME: ${{ inputs.sdk_filename || 'openwrt-sdk-24.10.5-mediatek-mt7622_gcc-13.3.0_musl.Linux-x86_64.tar.zst' }}
+      PACKAGE_NAME: luci-app-squid-profiles
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install host tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential file gawk gettext git libncurses-dev python3 rsync unzip wget zstd
+
+      - name: Download OpenWrt SDK
+        run: |
+          set -eu
+          base="https://downloads.openwrt.org/releases/${OPENWRT_RELEASE}/targets/${OPENWRT_TARGET}/${OPENWRT_SUBTARGET}"
+          if [ "${OPENWRT_RELEASE}" = "snapshots" ]; then
+            base="https://downloads.openwrt.org/snapshots/targets/${OPENWRT_TARGET}/${OPENWRT_SUBTARGET}"
+          fi
+          wget "${base}/${SDK_FILENAME}"
+          mkdir sdk
+          tar -I zstd -xf "${SDK_FILENAME}" -C sdk --strip-components=1
+
+      - name: Add package to SDK
+        run: |
+          set -eu
+          mkdir -p sdk/package/feeds/custom
+          ln -s "${GITHUB_WORKSPACE}/openwrt-squid-profile-ui" "sdk/package/feeds/custom/${PACKAGE_NAME}"
+
+      - name: Prepare feeds
+        working-directory: sdk
+        run: |
+          ./scripts/feeds update -a
+          ./scripts/feeds install "${PACKAGE_NAME}"
+
+      - name: Check package metadata
+        working-directory: sdk
+        run: make "package/${PACKAGE_NAME}/check" V=s
+
+      - name: Compile package
+        working-directory: sdk
+        run: make "package/${PACKAGE_NAME}/compile" V=s
+
+      - name: Generate package index
+        working-directory: sdk
+        run: make package/index V=s
+
+      - name: Collect artifacts
+        run: |
+          set -eu
+          mkdir -p artifacts/packages artifacts/repository
+          find sdk/bin/packages -type f \( -name '*.ipk' -o -name '*.apk' \) -print -exec cp -v {} artifacts/packages/ \;
+          find sdk/bin/packages -type f \( -name 'Packages' -o -name 'Packages.gz' -o -name 'Packages.sig' -o -name 'packages.adb' -o -name 'packages.adb.sig' \) -print -exec cp -v {} artifacts/repository/ \; || true
+
+      - name: Create signed OPKG index
+        env:
+          OPENWRT_USIGN_SECRET_KEY: ${{ secrets.OPENWRT_USIGN_SECRET_KEY }}
+        run: |
+          set -eu
+          if [ -z "${OPENWRT_USIGN_SECRET_KEY}" ]; then
+            echo "OPENWRT_USIGN_SECRET_KEY is not set; skipping signed OPKG index"
+            exit 0
+          fi
+          printf '%s\n' "${OPENWRT_USIGN_SECRET_KEY}" > repo.sec
+          chmod 600 repo.sec
+          ./scripts/openwrt-opkg-index.sh sdk artifacts/packages repo.sec
+          cp artifacts/packages/Packages* artifacts/repository/
+
+      - name: Upload packages
+        uses: actions/upload-artifact@v4
+        with:
+          name: openwrt-packages-${{ env.OPENWRT_RELEASE }}-${{ env.OPENWRT_TARGET }}-${{ env.OPENWRT_SUBTARGET }}
+          path: artifacts
