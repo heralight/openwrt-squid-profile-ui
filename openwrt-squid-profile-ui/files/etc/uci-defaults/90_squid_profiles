@@ -11,17 +11,45 @@ fi
 
 "$HELPER" init
 
-if ! uci show squid_profiles >/dev/null 2>&1; then
+if ! uci -q get squid_profiles.core >/dev/null 2>&1; then
 	uci batch <<'EOUCI'
 set squid_profiles.core=globals
 set squid_profiles.core.enabled='1'
+
 add squid_profiles network
 set squid_profiles.@network[-1].cidr='192.168.1.0/24'
 set squid_profiles.@network[-1].vlan='LAN'
-set squid_profiles.@network[-1].description='Default LAN'
+set squid_profiles.@network[-1].description='Default LAN sample network'
+
+add squid_profiles network
+set squid_profiles.@network[-1].cidr='192.168.30.0/24'
+set squid_profiles.@network[-1].vlan='VLAN 30'
+set squid_profiles.@network[-1].description='Sample VLAN 30 network'
+
+add squid_profiles network
+set squid_profiles.@network[-1].cidr='192.168.31.0/24'
+set squid_profiles.@network[-1].vlan='VLAN 31'
+set squid_profiles.@network[-1].description='Sample VLAN 31 network'
+
 add squid_profiles profile
 set squid_profiles.@profile[-1].name='default'
-set squid_profiles.@profile[-1].description='Default profile'
+set squid_profiles.@profile[-1].description='Default profile sample'
+add_list squid_profiles.@profile[-1].deny_domain='ads.example.com'
+add_list squid_profiles.@profile[-1].deny_domain='tracker.example.com'
+
+add squid_profiles profile
+set squid_profiles.@profile[-1].name='kids'
+set squid_profiles.@profile[-1].description='Sample restricted profile'
+add_list squid_profiles.@profile[-1].allow_domain='wikipedia.org'
+add_list squid_profiles.@profile[-1].allow_domain='openwrt.org'
+add_list squid_profiles.@profile[-1].deny_domain='example-adult.invalid'
+
+set squid_profiles.vm_192_168_1_10=vm
+set squid_profiles.vm_192_168_1_10.ip='192.168.1.10'
+set squid_profiles.vm_192_168_1_10.name='sample-device'
+set squid_profiles.vm_192_168_1_10.vlan='LAN'
+add_list squid_profiles.vm_192_168_1_10.profile='default'
+
 commit squid_profiles
 EOUCI
 fi

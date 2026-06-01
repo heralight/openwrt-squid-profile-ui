@@ -134,7 +134,7 @@ validate_uci() {
 		deny="$(uci -q get "$CONFIG.$section.deny_domain" || true) $(uci -q get "$CONFIG.$section.deny_text" || true)"
 		validate_domain_list "$allow" "profile $name allow list"
 		validate_domain_list "$deny" "profile $name deny list"
-		conflicts="$(for d in $allow; do for e in $deny; do [ "$d" = "$e" ] && printf '%s ' "$d"; done; done)"
+		conflicts="$(for d in $allow; do for e in $deny; do [ "$d" = "$e" ] && printf '%s ' "$d"; done; done || true)"
 		[ -z "$conflicts" ] || fail "domain present in allow and deny lists for profile $name: $conflicts"
 	done
 	for section in $(uci show "$CONFIG" 2>/dev/null | sed -n "s/^$CONFIG\.\([^.=]*\)=network$/\1/p"); do
@@ -172,7 +172,7 @@ emit_profile_files() {
 		[ -s "$DOMAINS_DIR/$id.deny.txt" ] && printf 'acl profile_%s_deny dstdomain "%s"\n' "$id" "$DOMAINS_DIR/$id.deny.txt" >> "$map_file"
 	done
 	for vm in $(uci show "$CONFIG" 2>/dev/null | sed -n "s/^$CONFIG\.\([^.=]*\)=vm$/\1/p"); do
-		ip="$vm"; profiles="$(uci -q get "$CONFIG.$vm.profile" || true)"
+		ip="$(uci -q get "$CONFIG.$vm.ip" || printf '%s' "$vm")"; profiles="$(uci -q get "$CONFIG.$vm.profile" || true)"
 		[ -n "$profiles" ] || continue
 		printf 'acl vm_%s src %s\n' "$(normalize_name "$ip")" "$ip" >> "$map_file"
 		for profile in $profiles; do

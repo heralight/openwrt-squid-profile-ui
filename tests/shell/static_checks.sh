@@ -31,5 +31,6 @@ grep -q 'squid_profiles.lua:/usr/lib/lua/luci/controller/squid_profiles.lua' "$C
 grep -q 'view/squid-profiles:/www/luci-static/resources/view/squid-profiles' "$COMPOSE" || fail "compose does not mount LuCI view directory"
 grep -q 'squid-profiles:/etc/init.d/squid-profiles' "$COMPOSE" || fail "compose does not mount plugin init script"
 grep -q './runtime/etc-squid:/etc/squid' "$COMPOSE" || fail "compose does not mount Squid runtime tree"
+grep -q './runtime/config:/etc/config' "$COMPOSE" || fail "compose does not mount OpenWrt config runtime tree"
 
 printf 'shell static checks passed\n'

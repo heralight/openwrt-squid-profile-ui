@@ -1,10 +1,9 @@
 'use strict';
-
-var view = require('view');
-var form = require('form');
-var uci = require('uci');
-var request = require('request');
-var ui = require('ui');
+'require view';
+'require form';
+'require uci';
+'require request';
+'require ui';
 
 function splitText(value) {
     return String(value || '').split(/[\s,]+/).filter(function(item) { return item; });
@@ -14,33 +13,14 @@ function isDomain(value) {
     return /^(\*\.)?[A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?(\.[A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?)+$/.test(value || '') && value.indexOf('..') < 0;
 }
 
-function validateDomainSet(sectionId) {
-    var allow = [];
-    var deny = [];
-    allow = allow.concat(uci.get('squid_profiles', sectionId, 'allow_domain') || []);
-    deny = deny.concat(uci.get('squid_profiles', sectionId, 'deny_domain') || []);
-    allow = allow.concat(splitText(uci.get('squid_profiles', sectionId, 'allow_text')));
-    deny = deny.concat(splitText(uci.get('squid_profiles', sectionId, 'deny_text')));
+function responseJson(res) {
+    if (res && typeof res.json === 'function')
+        return res.json();
+    return (res || {}).json || {};
+}
 
-    var seenAllow = {};
-    var seenDeny = {};
-    for (var i = 0; i < allow.length; i++) {
-        if (!isDomain(allow[i]))
-            return _('Invalid allowed domain: ') + allow[i];
-        if (seenAllow[allow[i]])
-            return _('Duplicate allowed domain: ') + allow[i];
-        seenAllow[allow[i]] = true;
-    }
-    for (var j = 0; j < deny.length; j++) {
-        if (!isDomain(deny[j]))
-            return _('Invalid denied domain: ') + deny[j];
-        if (seenDeny[deny[j]])
-            return _('Duplicate denied domain: ') + deny[j];
-        if (seenAllow[deny[j]])
-            return _('Domain is both allowed and denied: ') + deny[j];
-        seenDeny[deny[j]] = true;
-    }
-    return null;
+function callAction(action) {
+    return request.get(L.url('admin/services/squid-profiles/' + action), { timeout: 30000 }).then(responseJson);
 }
 
 function notifyResult(title, data, level) {
@@ -50,10 +30,35 @@ function notifyResult(title, data, level) {
     ]), level || 'info');
 }
 
-function callAction(action) {
-    return request.get('/cgi-bin/luci/admin/services/squid-profiles/' + action, { timeout: 20000 }).then(function(res) {
-        return (res || {}).json || {};
-    });
+function optionList(value) {
+    return Array.isArray(value) ? value : (value ? [ value ] : []);
+}
+
+function validateDomainSet(sectionId) {
+    var allow = optionList(uci.get('squid_profiles', sectionId, 'allow_domain')).concat(splitText(uci.get('squid_profiles', sectionId, 'allow_text')));
+    var deny = optionList(uci.get('squid_profiles', sectionId, 'deny_domain')).concat(splitText(uci.get('squid_profiles', sectionId, 'deny_text')));
+    var seenAllow = {};
+    var seenDeny = {};
+
+    for (var i = 0; i < allow.length; i++) {
+        if (!isDomain(allow[i]))
+            return _('Invalid allowed domain: ') + allow[i];
+        if (seenAllow[allow[i]])
+            return _('Duplicate allowed domain: ') + allow[i];
+        seenAllow[allow[i]] = true;
+    }
+
+    for (var j = 0; j < deny.length; j++) {
+        if (!isDomain(deny[j]))
+            return _('Invalid denied domain: ') + deny[j];
+        if (seenDeny[deny[j]])
+            return _('Duplicate denied domain: ') + deny[j];
+        if (seenAllow[deny[j]])
+            return _('Domain is both allowed and denied: ') + deny[j];
+        seenDeny[deny[j]] = true;
+    }
+
+    return null;
 }
 
 return view.extend({
@@ -77,28 +82,19 @@ return view.extend({
         description.rmempty = true;
 
         var allow = s.option(form.DynamicList, 'allow_domain', _('Allowed domains'));
-        allow.validate = function(sectionId, value) {
-            if (!value)
-                return true;
-            return isDomain(value) ? true : _('Invalid domain name');
-        };
+        allow.validate = function(sectionId, value) { return !value || isDomain(value) ? true : _('Invalid domain name'); };
 
         var deny = s.option(form.DynamicList, 'deny_domain', _('Denied domains'));
-        deny.validate = function(sectionId, value) {
-            if (!value)
-                return true;
-            return isDomain(value) ? true : _('Invalid domain name');
-        };
+        deny.validate = function(sectionId, value) { return !value || isDomain(value) ? true : _('Invalid domain name'); };
 
         var allowText = s.option(form.TextValue, 'allow_text', _('Allowed domains - full text'));
         allowText.rows = 6;
         allowText.monospace = true;
         allowText.validate = function(sectionId, value) {
             var domains = splitText(value);
-            for (var i = 0; i < domains.length; i++) {
+            for (var i = 0; i < domains.length; i++)
                 if (!isDomain(domains[i]))
                     return _('Invalid domain name: ') + domains[i];
-            }
             return true;
         };
 
@@ -128,9 +124,7 @@ return view.extend({
                 ui.addNotification(null, E('p', {}, [ error ]), 'error');
                 return Promise.resolve();
             }
-            return uci.save().then(function() { return uci.commit('squid_profiles'); }).then(function() {
-                return callAction('apply');
-            }).then(function(data) {
+            return uci.save().then(function() { return uci.commit('squid_profiles'); }).then(function() { return callAction('apply'); }).then(function(data) {
                 notifyResult(data.success ? _('Profile applied') : _('Profile apply failed'), data, data.success ? 'info' : 'error');
             });
         };

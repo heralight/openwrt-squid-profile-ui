@@ -32,20 +32,19 @@ The package is designed for low-power OpenWrt routers: no external frontend fram
 │       │   ├── init.d/squid-profiles
 │       │   └── uci-defaults/90_squid_profiles
 │       └── usr/
+│           ├── lib/lua/luci/controller/squid_profiles.lua
 │           ├── libexec/squid-profiles
 │           └── share/
-│               ├── luci/
-│               │   ├── controller/squid-profiles.lua
-│               │   ├── menu.d/luci-app-squid-profiles.json
-│               └── www/luci-static/resources/view/squid-profiles/
-│               │       ├── main.js
-│               │       ├── networks.js
-│               │       └── profiles.js
+│               ├── luci/menu.d/luci-app-squid-profiles.json
 │               └── rpcd/acl.d/luci-app-squid-profiles.json
+│       └── www/luci-static/resources/view/squid-profiles/
+│           ├── main.js
+│           ├── networks.js
+│           └── profiles.js
 ├── test/
 │   ├── Dockerfile
 │   ├── compose.yml
-│   ├── docker-compose.yml
+│   ├── entrypoint.sh
 │   ├── README.md
 │   └── runtime/
 └── tests/
@@ -56,13 +55,32 @@ The package is designed for low-power OpenWrt routers: no external frontend fram
 
 ## Installation on OpenWrt
 
-Build the package with the OpenWrt SDK or include `openwrt-squid-profile-ui` in a package feed, then install the generated IPK:
+Build the package with the OpenWrt SDK or include `openwrt-squid-profile-ui` in a package feed. The package Makefile declares the runtime dependencies with `LUCI_DEPENDS`:
+
+```make
++luci-base +luci-compat +rpcd +uci +squid
+```
+
+Example SDK flow:
+
+```sh
+cd /path/to/openwrt-sdk
+mkdir -p package/feeds/custom
+ln -s /path/to/openwrt-squid-profile-ui/openwrt-squid-profile-ui package/feeds/custom/luci-app-squid-profiles
+./scripts/feeds update -a
+./scripts/feeds install luci-app-squid-profiles
+make package/luci-app-squid-profiles/compile V=s
+```
+
+Install the generated IPK on the router:
 
 ```sh
 opkg install ./luci-app-squid-profiles_*.ipk
 ```
 
 The package depends on LuCI, rpcd, UCI and Squid. After installation, open LuCI and go to Services -> Squid Profiles.
+
+The uci-defaults script also seeds a minimal sample configuration when `squid_profiles.core` does not exist: three covered networks, two profiles and one sample machine. Existing non-empty plugin configuration is preserved.
 
 ## Initialization Behavior
 
@@ -129,7 +147,7 @@ It exposes:
 2222 -> 22
 ```
 
-Mounted development paths are file-level mounts for the LuCI menu, controller, RPC ACL, helper, init script and view directory. This keeps the base LuCI installation from the image intact while local plugin edits remain visible without rebuilding the IPK.
+Mounted development paths are file-level mounts for the LuCI menu, controller, RPC ACL, helper, init script and view directory. Runtime data uses directory mounts for `/etc/squid`, `/etc/config` and `/tmp`; the test entrypoint copies the image default OpenWrt config files into the mounted `/etc/config` directory if they are missing. This keeps the base LuCI installation from the image intact while local plugin edits remain visible without rebuilding the IPK.
 
 ## Debug Commands
 

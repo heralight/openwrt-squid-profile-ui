@@ -26,7 +26,7 @@ podman exec -it openwrt-squid-profile-ui ash
 - `../openwrt-squid-profile-ui/files/etc/uci-defaults/90_squid_profiles` -> `/etc/uci-defaults/90_squid_profiles`
 - `../openwrt-squid-profile-ui/files/etc/init.d/squid-profiles` -> `/etc/init.d/squid-profiles`
 - `./runtime/etc-squid` -> `/etc/squid`
-- `./runtime/config/squid_profiles` -> `/etc/config/squid_profiles`
+- `./runtime/config` -> `/etc/config`
 - `./runtime/log` -> `/tmp`
 
 ## Useful commands inside the container

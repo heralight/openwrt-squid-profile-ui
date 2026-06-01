@@ -1,22 +1,25 @@
 'use strict';
+'require view';
+'require form';
+'require uci';
+'require request';
+'require ui';
 
-var view = require('view');
-var form = require('form');
-var uci = require('uci');
-var request = require('request');
-var ui = require('ui');
+function responseJson(res) {
+    if (res && typeof res.json === 'function')
+        return res.json();
+    return (res || {}).json || {};
+}
+
+function callAction(action) {
+    return request.get(L.url('admin/services/squid-profiles/' + action), { timeout: 30000 }).then(responseJson);
+}
 
 function notifyResult(title, data, level) {
     ui.addNotification(null, E('div', {}, [
         E('p', {}, [ title ]),
         data && data.output ? E('pre', { 'style': 'white-space:pre-wrap' }, [ data.output ]) : ''
     ]), level || 'info');
-}
-
-function callAction(action) {
-    return request.get('/cgi-bin/luci/admin/services/squid-profiles/' + action, { timeout: 20000 }).then(function(res) {
-        return (res || {}).json || {};
-    });
 }
 
 return view.extend({
@@ -46,7 +49,6 @@ return view.extend({
 
         var actions = m.section(form.NamedSection, 'core', 'globals', _('Actions'));
         actions.addremove = false;
-
         var validate = actions.option(form.Button, '_validate', _('Validate configuration'));
         validate.inputstyle = 'apply';
         validate.onclick = function() {
@@ -54,13 +56,10 @@ return view.extend({
                 notifyResult(data.success ? _('Validation succeeded') : _('Validation failed'), data, data.success ? 'info' : 'error');
             });
         };
-
         var apply = actions.option(form.Button, '_apply', _('Apply'));
         apply.inputstyle = 'save';
         apply.onclick = function() {
-            return uci.save().then(function() { return uci.commit('squid_profiles'); }).then(function() {
-                return callAction('apply');
-            }).then(function(data) {
+            return uci.save().then(function() { return uci.commit('squid_profiles'); }).then(function() { return callAction('apply'); }).then(function(data) {
                 notifyResult(data.success ? _('Configuration applied') : _('Apply failed'), data, data.success ? 'info' : 'error');
             });
         };
