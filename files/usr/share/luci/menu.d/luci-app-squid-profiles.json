@@ -1,0 +1,26 @@
+{
+    "admin/services/squid-profiles": {
+        "title": "Squid Profiles",
+        "order": 10,
+        "action": {
+            "type": "view",
+            "path": "squid-profiles/main"
+        }
+    },
+    "admin/services/squid-profiles/profiles": {
+        "title": "Profiles",
+        "order": 20,
+        "action": {
+            "type": "view",
+            "path": "squid-profiles/profiles"
+        }
+    },
+    "admin/services/squid-profiles/networks": {
+        "title": "Networks",
+        "order": 30,
+        "action": {
+            "type": "view",
+            "path": "squid-profiles/network"
+        }
+    }
+}

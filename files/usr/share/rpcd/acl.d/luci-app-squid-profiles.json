@@ -1,0 +1,29 @@
+{
+    "luci-app-squid-profiles": {
+        "description": "Permissions for Squid Profiles UI",
+        "read": {
+            "uci": [
+                "squid_profiles",
+                "squid"
+            ],
+            "file": {
+                "path": [
+                    "/etc/squid"
+                ]
+            }
+        },
+        "write": {
+            "uci": [
+                "squid_profiles"
+            ],
+            "file": {
+                "path": [
+                    "/etc/squid"
+                ]
+            },
+            "command": [
+                "squid"
+            ]
+        }
+    }
+}
