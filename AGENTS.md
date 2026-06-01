@@ -50,7 +50,7 @@ logread
 
 ## Never Do This
 
-- Never overwrite `/etc/squid/squid.conf` without creating a dated backup first.
+- Never overwrite `/etc/squid/squid.conf` without creating a dated backup first, including normal apply operations.
 - Never apply or reload Squid without running `squid -k parse` first.
 - Never hide validation errors from the UI or logs.
 - Never add a heavy dependency or external frontend framework.

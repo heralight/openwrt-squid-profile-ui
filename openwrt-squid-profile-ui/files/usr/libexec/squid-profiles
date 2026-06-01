@@ -95,6 +95,14 @@ init_tree() {
 	fi
 }
 
+backup_current_config() {
+	if [ -f "$SQUID_CONF" ]; then
+		backup="$(unique_backup_path "$SQUID_CONF")"
+		cp "$SQUID_CONF" "$backup"
+		log "Backed up current Squid configuration before modification: $backup"
+	fi
+}
+
 normalize_name() {
 	printf '%s' "$1" | tr -c 'A-Za-z0-9_' '_' | sed 's/^_*//;s/_*$//'
 }
@@ -220,6 +228,7 @@ apply_config() {
 	emit_profile_files
 	write_skeleton "$TMP_CONF"
 	validate_squid "$TMP_CONF"
+	backup_current_config
 	cp "$TMP_CONF" "$SQUID_CONF"
 	squid -k reconfigure
 	log "Applied Squid configuration: $SQUID_CONF"

@@ -14,6 +14,7 @@ The package is designed for low-power OpenWrt routers: no external frontend fram
 - Profile management with name, description, allowed domains, denied domains, dynamic lists and full text fields.
 - Local domain validation for invalid domains, duplicates and obvious allow/deny conflicts.
 - First-run Squid initialization with dated backup of existing `/etc/squid/squid.conf`.
+- Dated backup before every effective rewrite of `/etc/squid/squid.conf`.
 - Global validation and apply actions, plus profile-level validate/apply buttons.
 - Mandatory `squid -k parse` before any Squid reload.
 
@@ -85,6 +86,8 @@ If a backup for the same day already exists, the helper creates a unique suffix 
 ```text
 /etc/squid/squid.conf.20260601.bak.1
 ```
+
+Before each later apply, the helper validates the generated temporary configuration, copies the current `/etc/squid/squid.conf` to a unique dated backup path, then replaces it.
 
 The helper then writes a Squid skeleton compatible with generated profile ACLs. The UI and helper report the backup path, directories and generated files in their command output.
 
