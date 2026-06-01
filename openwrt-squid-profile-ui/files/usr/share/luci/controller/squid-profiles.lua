@@ -1,49 +1,43 @@
 -- SPDX-License-Identifier: Apache-2.0
--- Copyright 2026
 
 module("luci.controller.squid_profiles", package.seeall)
 
+local helper = "/usr/libexec/squid-profiles"
+
 function index()
-    -- The menu entries for this app are defined in a JSON menu file under
-    -- usr/share/luci/menu.d.  We register RPC actions here.
-    entry({"admin", "services", "squid-profiles", "parse"}, call("action_parse"), nil, 80).leaf = true
-    entry({"admin", "services", "squid-profiles", "reload"}, call("action_reload"), nil, 81).leaf = true
+	entry({"admin", "services", "squid-profiles", "init"}, call("action_init"), nil, 79).leaf = true
+	entry({"admin", "services", "squid-profiles", "parse"}, call("action_parse"), nil, 80).leaf = true
+	entry({"admin", "services", "squid-profiles", "apply"}, call("action_apply"), nil, 81).leaf = true
 end
 
--- Run squid -k parse and return JSON result
+local function json_result(ok, code, output)
+	local http = require "luci.http"
+	http.prepare_content("application/json")
+	http.write_json({
+		success = ok,
+		code = code,
+		message = output or "",
+		output = output or ""
+	})
+end
+
+local function run_helper(action)
+	local sys = require "luci.sys"
+	local cmd = string.format("%s %s 2>&1; echo __EXIT_CODE__:$?", helper, action)
+	local output = sys.exec(cmd) or ""
+	local code = tonumber(output:match("__EXIT_CODE__:(%d+)%s*$") or "1") or 1
+	output = output:gsub("\n?__EXIT_CODE__:%d+%s*$", "")
+	json_result(code == 0, code, output)
+end
+
+function action_init()
+	run_helper("init")
+end
+
 function action_parse()
-    local http  = require "luci.http"
-    local util  = require "luci.util"
-
-    local cmd = "/usr/sbin/squid -k parse 2>&1"
-    local result = {}
-    local data = luci.sys.exec(cmd)
-    -- os.execute returns the exit status in a shell-specific way; use sys.exec for output
-    -- assume non-empty output implies error
-    if data and #data > 0 then
-        result.code = 1
-        result.message = data
-    else
-        result.code = 0
-        result.message = "Configuration parsed successfully"
-    end
-    http.prepare_content("application/json")
-    http.write_json(result)
+	run_helper("validate")
 end
 
--- Reload squid configuration
-function action_reload()
-    local http = require "luci.http"
-    local result = {}
-    local cmd = "/usr/sbin/squid -k reconfigure 2>&1"
-    local data = luci.sys.exec(cmd)
-    if data and #data > 0 then
-        result.code = 1
-        result.message = data
-    else
-        result.code = 0
-        result.message = "Squid reconfigured"
-    end
-    http.prepare_content("application/json")
-    http.write_json(result)
+function action_apply()
+	run_helper("apply")
 end

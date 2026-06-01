@@ -20,7 +20,7 @@
         "order": 30,
         "action": {
             "type": "view",
-            "path": "squid-profiles/network"
+            "path": "squid-profiles/networks"
         }
     }
 }

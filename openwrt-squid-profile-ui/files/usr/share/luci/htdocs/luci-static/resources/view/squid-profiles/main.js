@@ -1,333 +1,224 @@
-/*
- * Squid profiles – main device assignment page
- *
- * This view renders a table of all known hosts (virtual machines) on the
- * network and allows the administrator to assign one or more Squid
- * profiles to each IP address. Hostname and VLAN information are
- * gathered automatically from the LuCI network host hints API and the
- * configured networks in the squid_profiles UCI file.  Any IP which is
- * outside of a defined subnet will be displayed but cannot be assigned
- * to a profile.  Changes made here are validated with `squid -k parse`
- * before being committed and a reconfigure is triggered on success.
- */
-
 'use strict';
 
-// Import LuCI modules
-var view    = require('view');
-var form    = require('form');
-var uci     = require('uci');
+var view = require('view');
+var form = require('form');
+var uci = require('uci');
 var network = require('network');
 var request = require('request');
-var ui      = require('ui');
-var dom     = require('dom');
+var ui = require('ui');
 
-/* Helper: Convert an IPv4 address into a 32‑bit integer. */
 function ipToInt(ip) {
-    var parts = ip.split('.').map(function(p) { return parseInt(p, 10); });
+    var parts = String(ip || '').split('.').map(function(part) { return parseInt(part, 10); });
+    if (parts.length !== 4 || parts.some(function(part) { return isNaN(part) || part < 0 || part > 255; }))
+        return null;
     return (((parts[0] << 24) >>> 0) | (parts[1] << 16) | (parts[2] << 8) | parts[3]) >>> 0;
 }
 
-/* Helper: Check if an IP is within a CIDR subnet. */
-function ipInSubnet(ip, subnet) {
-    if (!subnet)
+function ipInCidr(ip, cidr) {
+    var ipInt = ipToInt(ip);
+    var bits = String(cidr || '').split('/');
+    var netInt = ipToInt(bits[0]);
+    var prefix = parseInt(bits[1], 10);
+    if (ipInt === null || netInt === null || isNaN(prefix) || prefix < 0 || prefix > 32)
         return false;
-    var idx = subnet.indexOf('/');
-    if (idx < 0)
-        return false;
-    var net = subnet.substring(0, idx);
-    var prefix = parseInt(subnet.substring(idx + 1), 10);
-    if (isNaN(prefix))
-        return false;
-    var ipInt   = ipToInt(ip);
-    var netInt  = ipToInt(net);
-    var mask    = prefix === 0 ? 0 : ((0xffffffff << (32 - prefix)) >>> 0);
+    var mask = prefix === 0 ? 0 : (0xffffffff << (32 - prefix)) >>> 0;
     return (ipInt & mask) === (netInt & mask);
 }
 
-/* Helper: Determine the VLAN ID for a given IP based on configured networks. */
-function getVlanForIP(ip, networks) {
+function networkForIp(ip, networks) {
     for (var i = 0; i < networks.length; i++) {
-        var n = networks[i];
-        if (ipInSubnet(ip, n.subnet))
-            return n.vlan || '';
+        if (ipInCidr(ip, networks[i].cidr))
+            return networks[i];
     }
-    return '';
+    return null;
+}
+
+function notifyResult(title, data, level) {
+    ui.addNotification(null, E('div', {}, [
+        E('p', {}, [ title ]),
+        data && data.output ? E('pre', { 'style': 'white-space:pre-wrap' }, [ data.output ]) : ''
+    ]), level || 'info');
+}
+
+function callAction(action) {
+    return request.get('/cgi-bin/luci/admin/services/squid-profiles/' + action, { timeout: 20000 }).then(function(res) {
+        return (res || {}).json || {};
+    });
 }
 
 return view.extend({
     load: function() {
-        // Load UCI config and network host hints in parallel
         return Promise.all([
             uci.load('squid_profiles'),
-            uci.load('network'),
-            network.getHostHints()
+            network.getHostHints().catch(function() { return {}; })
         ]);
     },
 
     render: function(data) {
-        var hostHints = data[2] || {};
-        var self = this;
+        var hostHints = data[1] || {};
+        var filterKey = 'squid_profiles_vlan_filter';
+        var sortKey = 'squid_profiles_sort';
+        var selectedVlan = window.localStorage.getItem(filterKey) || '';
+        var selectedSort = window.localStorage.getItem(sortKey) || 'ip';
 
-        // Build list of profiles
-        var profileNames = [];
+        var profiles = [];
         uci.sections('squid_profiles', 'profile', function(section) {
-            profileNames.push(section['.name']);
+            var name = section.name || section['.name'];
+            if (name)
+                profiles.push(name);
         });
 
-        // Build list of network definitions
-        var networks = [];
+        var coveredNetworks = [];
         uci.sections('squid_profiles', 'network', function(section) {
-            networks.push({
-                subnet: section.subnet,
-                vlan: section.vlan
+            coveredNetworks.push({
+                cidr: section.cidr || section.subnet || '',
+                vlan: section.vlan || '',
+                description: section.description || ''
             });
         });
 
-        // Prepare VM information map keyed by IP
-        var vms = {};
-        // Existing VM sections from UCI
+        var hosts = {};
         uci.sections('squid_profiles', 'vm', function(section) {
             var ip = section['.name'];
-            vms[ip] = {
+            var covered = networkForIp(ip, coveredNetworks);
+            hosts[ip] = {
                 ip: ip,
                 name: section.name || '',
-                vlan: section.vlan || getVlanForIP(ip, networks),
+                vlan: section.vlan || (covered ? covered.vlan : ''),
+                covered: !!covered,
                 profiles: Array.isArray(section.profile) ? section.profile : (section.profile ? [ section.profile ] : [])
             };
         });
-        // Host hints (from DHCP, ARP, neighbor discovery)
+
         try {
-            var hints = hostHints && hostHints.getAllHints ? hostHints.getAllHints() : hostHints;
-            for (var mac in hints) {
-                var hint = hints[mac];
-                // Each hint may have one or more IPv4 addresses; only use IPv4
+            var hints = hostHints.getAllHints ? hostHints.getAllHints() : hostHints;
+            Object.keys(hints || {}).forEach(function(mac) {
+                var hint = hints[mac] || {};
                 (hint.ipv4 || []).forEach(function(ip) {
-                    // If already present, update name if missing
-                    if (vms[ip]) {
-                        if (!vms[ip].name && hint.name)
-                            vms[ip].name = hint.name;
-                        return;
+                    var covered = networkForIp(ip, coveredNetworks);
+                    if (!hosts[ip]) {
+                        hosts[ip] = {
+                            ip: ip,
+                            name: hint.name || '',
+                            vlan: covered ? covered.vlan : '',
+                            covered: !!covered,
+                            profiles: []
+                        };
                     }
-                    var vlan = getVlanForIP(ip, networks);
-                    vms[ip] = {
-                        ip: ip,
-                        name: hint.name || '',
-                        vlan: vlan,
-                        profiles: []
-                    };
+                    else if (!hosts[ip].name && hint.name) {
+                        hosts[ip].name = hint.name;
+                    }
                 });
-            }
+            });
         }
-        catch (e) {
-            // ignore host hint errors
-        }
+        catch (e) {}
 
-        // Convert vms map to array and sort by IP for stable ordering
-        var vmList = Object.keys(vms).sort(function(a, b) {
-            var ai = ipToInt(a);
-            var bi = ipToInt(b);
-            return ai < bi ? -1 : ai > bi ? 1 : 0;
-        }).map(function(ip) { return vms[ip]; });
+        var hostList = Object.keys(hosts).map(function(ip) { return hosts[ip]; }).filter(function(host) {
+            return !selectedVlan || host.vlan === selectedVlan;
+        });
 
-        // VLAN filter state stored in localStorage
-        var filterKey = 'squid_profiles_vlan_filter';
-        var selectedVlan = window.localStorage.getItem(filterKey) || '';
+        hostList.sort(function(a, b) {
+            if (selectedSort === 'vlan')
+                return String(a.vlan).localeCompare(String(b.vlan)) || ((ipToInt(a.ip) || 0) - (ipToInt(b.ip) || 0));
+            if (selectedSort === 'name')
+                return String(a.name).localeCompare(String(b.name)) || ((ipToInt(a.ip) || 0) - (ipToInt(b.ip) || 0));
+            return (ipToInt(a.ip) || 0) - (ipToInt(b.ip) || 0);
+        });
 
-        // Create the form map
-        var m = new form.Map('squid_profiles', _('Squid Profiles - Devices'), _('Assign Squid profiles to virtual machines by IP address.  Use the VLAN filter to limit the view to a specific network.  Only IPs falling within configured subnets can be assigned.  Changes are validated before being applied.'));
+        var m = new form.Map('squid_profiles', _('Squid Profiles - Devices'), _('Detected machines, VLAN/LAN coverage and multi-profile Squid assignments.'));
 
-        // Insert VLAN filter above the table
-        var filterContainer = E('div', { 'class': 'cbi-value' }, [
-            E('label', { 'class': 'cbi-value-title', 'for': 'vlan_filter' }, [ _('Filter by VLAN') ]),
-            E('div', { 'class': 'cbi-value-field' }, [
-                (function() {
-                    var select = E('select', { 'id': 'vlan_filter' }, [
-                        E('option', { 'value': '' }, _('All'))
-                    ].concat(networks.map(function(n) {
-                        return E('option', { 'value': n.vlan, 'selected': n.vlan === selectedVlan }, [ n.vlan ]);
-                    })));
-                    select.addEventListener('change', function() {
-                        selectedVlan = select.value;
-                        // Persist selection
-                        window.localStorage.setItem(filterKey, selectedVlan);
-                        // Re-render form
-                        self.render();
-                    });
-                    return select;
-                })()
-            ])
-        ]);
+        m.render = (function(render) {
+            return function() {
+                return render.apply(this, arguments).then(function(node) {
+                    var filters = E('div', { 'class': 'cbi-section' }, [
+                        E('div', { 'class': 'cbi-value' }, [
+                            E('label', { 'class': 'cbi-value-title' }, [ _('Filter by VLAN/LAN') ]),
+                            E('div', { 'class': 'cbi-value-field' }, [
+                                E('select', { 'change': function(ev) { window.localStorage.setItem(filterKey, ev.target.value); location.reload(); } }, [
+                                    E('option', { 'value': '', 'selected': selectedVlan === '' }, [ _('All') ])
+                                ].concat(coveredNetworks.map(function(net) {
+                                    return E('option', { 'value': net.vlan, 'selected': selectedVlan === net.vlan }, [ net.vlan + ' - ' + net.cidr ]);
+                                })))
+                            ])
+                        ]),
+                        E('div', { 'class': 'cbi-value' }, [
+                            E('label', { 'class': 'cbi-value-title' }, [ _('Sort by') ]),
+                            E('div', { 'class': 'cbi-value-field' }, [
+                                E('select', { 'change': function(ev) { window.localStorage.setItem(sortKey, ev.target.value); location.reload(); } }, [
+                                    E('option', { 'value': 'ip', 'selected': selectedSort === 'ip' }, [ _('IP address') ]),
+                                    E('option', { 'value': 'vlan', 'selected': selectedSort === 'vlan' }, [ _('VLAN/LAN') ]),
+                                    E('option', { 'value': 'name', 'selected': selectedSort === 'name' }, [ _('Hostname') ])
+                                ])
+                            ])
+                        ])
+                    ]);
+                    node.insertBefore(filters, node.firstChild);
+                    return node;
+                });
+            };
+        })(m.render);
 
-        // Append filter container to map description area
-        m.description = [ m.description, filterContainer ];
-
-        // Create GridSection for VM assignments
-        var s = m.section(form.GridSection, 'vm', _('Device Assignments'));
-        s.nodescriptions = true;
-        s.addremove = false;
+        var s = m.section(form.GridSection, 'vm', _('Machines'));
         s.anonymous = true;
-
-        // Filter out VMs based on current VLAN filter; override default row list
+        s.addremove = false;
+        s.nodescriptions = true;
+        s.cfgsections = function() { return hostList.map(function(host) { return host.ip; }); };
         s.load = function() {
-            // Synchronize UCI sections with discovered hosts before rendering
-            var promises = [];
-            vmList.forEach(function(vm) {
-                // Skip IPs outside of any defined subnet; they remain read‑only
-                var covered = (vm.vlan && vm.vlan !== '');
-                // Create or update UCI section for covered hosts
-                if (covered) {
-                    // Ensure vm section exists
-                    var sec = null;
-                    uci.sections('squid_profiles', 'vm', function(s) {
-                        if (s['.name'] === vm.ip)
-                            sec = s;
-                    });
-                    if (!sec) {
-                        // Create new section with name equal to IP
-                        uci.set('squid_profiles', vm.ip, 'type', 'vm');
-                        uci.set('squid_profiles', vm.ip, 'vlan', vm.vlan);
-                        if (vm.name)
-                            uci.set('squid_profiles', vm.ip, 'name', vm.name);
-                        if (vm.profiles.length)
-                            uci.set('squid_profiles', vm.ip, 'profile', vm.profiles);
-                    }
-                    else {
-                        // Update name and vlan if missing
-                        if (!sec.name && vm.name)
-                            uci.set('squid_profiles', vm.ip, 'name', vm.name);
-                        if (!sec.vlan && vm.vlan)
-                            uci.set('squid_profiles', vm.ip, 'vlan', vm.vlan);
-                    }
-                }
+            hostList.forEach(function(host) {
+                if (!host.covered)
+                    return;
+                uci.set('squid_profiles', host.ip, 'type', 'vm');
+                uci.set('squid_profiles', host.ip, 'name', host.name || '');
+                uci.set('squid_profiles', host.ip, 'vlan', host.vlan || '');
             });
             return Promise.resolve();
         };
 
-        // Override list of displayed sections to account for VLAN filter and discovered hosts
-        s.cfgsections = function() {
-            var list = [];
-            vmList.forEach(function(vm) {
-                if (selectedVlan && vm.vlan !== selectedVlan)
-                    return;
-                list.push(vm.ip);
-            });
-            return list;
+        var ip = s.option(form.DummyValue, '_ip', _('IP address'));
+        ip.cfgvalue = function(sectionId) { return sectionId; };
+
+        var name = s.option(form.Value, 'name', _('Hostname'));
+        name.readonly = true;
+
+        var vlan = s.option(form.Value, 'vlan', _('VLAN/LAN'));
+        vlan.readonly = true;
+
+        var status = s.option(form.DummyValue, '_coverage', _('Coverage'));
+        status.cfgvalue = function(sectionId) {
+            return hosts[sectionId] && hosts[sectionId].covered ? _('Covered') : _('Outside covered networks');
         };
 
-        // Column: IP address (read‑only)
-        var ipOpt = s.option(form.Value, '.name', _('IP Address'));
-        ipOpt.editable = false;
-        ipOpt.width = '20%';
-
-        // Column: Hostname (read‑only)
-        var nameOpt = s.option(form.Value, 'name', _('Hostname'));
-        nameOpt.editable = false;
-        nameOpt.width = '25%';
-
-        // Column: VLAN (read‑only)
-        var vlanOpt = s.option(form.Value, 'vlan', _('VLAN'));
-        vlanOpt.editable = false;
-        vlanOpt.width = '10%';
-
-        // Column: Assigned profiles (multi‑select)
-        var profOpt = s.option(form.MultiValue, 'profile', _('Profiles'));
-        profOpt.multiple = true;
-        profOpt.size = 5;
-        profOpt.allow_duplicates = true;
-        profOpt.modalonly = false;
-        profileNames.forEach(function(p) {
-            profOpt.value(p);
-        });
-        // Only allow editing when IP is covered by a network; else disable field
-        profOpt.editable = true;
-        profOpt.depends = function(section_id) {
-            var vm = vms[section_id];
-            return (vm && vm.vlan && vm.vlan !== '');
+        var assigned = s.option(form.MultiValue, 'profile', _('Profiles'));
+        assigned.modalonly = false;
+        assigned.multiple = true;
+        assigned.size = Math.min(Math.max(profiles.length, 3), 8);
+        profiles.forEach(function(profile) { assigned.value(profile); });
+        assigned.write = function(sectionId, value) {
+            var host = hosts[sectionId];
+            if (!host || !host.covered)
+                throw new Error(_('IP address is outside the networks covered by Squid.'));
+            uci.set('squid_profiles', sectionId, 'profile', Array.isArray(value) ? value : (value ? [ value ] : []));
+        };
+        assigned.remove = function(sectionId) {
+            uci.unset('squid_profiles', sectionId, 'profile');
         };
 
-        // Hook to enforce network coverage before saving assignment
-        profOpt.write = function(section_id, value) {
-            var vm = vms[section_id];
-            if (!vm || !vm.vlan || vm.vlan === '') {
-                // Do not write assignments for uncovered IPs
-                return;
-            }
-            // Ensure list type
-            if (!Array.isArray(value))
-                value = value ? [ value ] : [];
-            // Write list of profiles into UCI
-            uci.set('squid_profiles', section_id, 'profile', value);
-        };
-
-        // Footer buttons: Validate and Apply
-        s.renderMore = function() {
-            var btns = E('div', { 'class': 'cbi-section-actions' }, [
-                E('button', {
-                    'class': 'cbi-button cbi-button-apply',
-                    'click': function(ev) {
-                        ev.preventDefault();
-                        return self._validateConfig(true);
-                    }
-                }, [ _('Validate') ]),
-                E('button', {
-                    'class': 'cbi-button cbi-button-save',
-                    'click': function(ev) {
-                        ev.preventDefault();
-                        return self._applyConfig();
-                    }
-                }, [ _('Apply') ])
-            ]);
-            return btns;
-        };
-
-        // Define validate and apply helpers on view instance
-        this._validateConfig = function(showToast) {
-            // Save changes to UCI but do not commit yet
-            return uci.save().then(function() {
-                return request.get('/cgi-bin/luci/admin/services/squid-profiles/parse', {
-                    timeout: 10000
-                }).then(function(res) {
-                    var status = res && res.status;
-                    var data = (res || {}).json || {};
-                    if (status === 200 && data.success) {
-                        if (showToast)
-                            ui.addNotification(null, E('p', {}, _('Squid configuration validated successfully.')), 'info');
-                        return true;
-                    }
-                    var msg = data.message || _('Unknown error');
-                    ui.addNotification(null, E('p', {}, [_('Validation failed: '), msg]), 'error');
-                    return false;
-                }).catch(function(err) {
-                    ui.addNotification(null, E('p', {}, _('Validation request failed.')), 'error');
-                    return false;
-                });
+        var actions = m.section(form.NamedSection, 'core', 'globals', _('Actions'));
+        actions.addremove = false;
+        var validate = actions.option(form.Button, '_validate', _('Validate configuration'));
+        validate.inputstyle = 'apply';
+        validate.onclick = function() {
+            return uci.save().then(function() { return callAction('parse'); }).then(function(data) {
+                notifyResult(data.success ? _('Validation succeeded') : _('Validation failed'), data, data.success ? 'info' : 'error');
             });
         };
-
-        this._applyConfig = function() {
-            var self = this;
-            // First validate
-            return self._validateConfig(false).then(function(ok) {
-                if (!ok)
-                    return;
-                // Commit UCI changes
-                return uci.save().then(function() {
-                    return uci.commit('squid_profiles');
-                }).then(function() {
-                    // Reload Squid configuration
-                    return request.get('/cgi-bin/luci/admin/services/squid-profiles/reload', { timeout: 15000 });
-                }).then(function(res) {
-                    var data = (res || {}).json || {};
-                    if (data.success) {
-                        ui.addNotification(null, E('p', {}, _('Changes applied and Squid reloaded successfully.')), 'info');
-                    }
-                    else {
-                        ui.addNotification(null, E('p', {}, [_('Failed to reload Squid: '), data.message || _('Unknown error')]), 'error');
-                    }
-                }).catch(function(err) {
-                    ui.addNotification(null, E('p', {}, _('Failed to apply changes.')), 'error');
-                });
+        var apply = actions.option(form.Button, '_apply', _('Apply'));
+        apply.inputstyle = 'save';
+        apply.onclick = function() {
+            return uci.save().then(function() { return uci.commit('squid_profiles'); }).then(function() {
+                return callAction('apply');
+            }).then(function(data) {
+                notifyResult(data.success ? _('Configuration applied') : _('Apply failed'), data, data.success ? 'info' : 'error');
             });
         };
 

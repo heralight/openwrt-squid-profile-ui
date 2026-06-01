@@ -1,0 +1,21 @@
+services:
+  openwrt:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: openwrt-squid-profile-ui
+    ports:
+      - "8080:80"
+      - "3128:3128"
+      - "2222:22"
+    volumes:
+      - ../openwrt-squid-profile-ui/files/usr/share/luci:/usr/share/luci
+      - ../openwrt-squid-profile-ui/files/usr/share/rpcd:/usr/share/rpcd
+      - ../openwrt-squid-profile-ui/files/usr/libexec:/usr/libexec
+      - ../openwrt-squid-profile-ui/files/etc/uci-defaults:/etc/uci-defaults
+      - ../openwrt-squid-profile-ui/files/etc/init.d:/etc/init.d
+      - ./runtime/etc-squid:/etc/squid
+      - ./runtime/config:/etc/config
+      - ./runtime/log:/tmp
+    tty: true
+    stdin_open: true

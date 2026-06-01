@@ -1,23 +1,2 @@
-
-services:
-  openwrt:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    #container_name: openwrt-squid-test
-    #privileged: true
-    # Exposez l'interface LuCI (80), SSH (22) et Squid (3128) sur l'hôte
-  ports:
-      - "8080:80"    # Accès à LuCI depuis localhost:8080
-      - "2222:22"    # Accès SSH éventuel
-      - "3128:3128"  # Proxy Squid
-    volumes:
-      # Volume persistant pour la surcouche (/overlay)
-      - ./overlay:/overlay
-      # Montages du code du plugin dans l'arborescence OpenWrt
-      - ./openwrt-squid-profile-ui/files/etc/uci-defaults:/etc/uci-defaults
-      - ./openwrt-squid-profile-ui/files/usr/share/luci:/usr/share/luci
-      - ./openwrt-squid-profile-ui/files/usr/share/rpcd:/usr/share/rpcd
-      # Persistences pour les listes de domaines et d'IPs générées par le plugin
-      - ./squid_domains:/etc/squid/domains
-      - ./squid_maps:/etc/squid/maps
+include:
+  - compose.yml
