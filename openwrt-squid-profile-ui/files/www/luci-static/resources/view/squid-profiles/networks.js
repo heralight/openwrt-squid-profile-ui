@@ -39,18 +39,22 @@ return view.extend({
         cidr.rmempty = false;
         cidr.datatype = 'cidr4';
         cidr.placeholder = '192.168.31.0/24';
+        cidr.description = _('Enter the client subnet that Squid may cover.');
 
         var vlan = s.option(form.Value, 'vlan', _('VLAN/LAN'));
         vlan.rmempty = false;
         vlan.placeholder = 'VLAN 31';
+        vlan.description = _('Use the same label that appears in the main machine list.');
 
         var description = s.option(form.Value, 'description', _('Description'));
         description.rmempty = true;
+        description.description = _('Optional note for operators.');
 
         var actions = m.section(form.NamedSection, 'core', 'globals', _('Actions'));
         actions.addremove = false;
         var validate = actions.option(form.Button, '_validate', _('Validate configuration'));
         validate.inputstyle = 'apply';
+        validate.description = _('Run squid -k parse before applying network changes.');
         validate.onclick = function() {
             return uci.save().then(function() { return callAction('parse'); }).then(function(data) {
                 notifyResult(data.success ? _('Validation succeeded') : _('Validation failed'), data, data.success ? 'info' : 'error');
@@ -58,10 +62,20 @@ return view.extend({
         };
         var apply = actions.option(form.Button, '_apply', _('Apply'));
         apply.inputstyle = 'save';
+        apply.description = _('Validate then apply the current Squid network set.');
         apply.onclick = function() {
             return uci.save().then(function() { return uci.commit('squid_profiles'); }).then(function() { return callAction('apply'); }).then(function(data) {
                 notifyResult(data.success ? _('Configuration applied') : _('Apply failed'), data, data.success ? 'info' : 'error');
             });
+        };
+        var help = actions.option(form.Button, '_help', _('Quick tip'));
+        help.inputstyle = 'reset';
+        help.description = _('Match each CIDR to one VLAN/LAN label.');
+        help.onclick = function() {
+            ui.addNotification(null, E('p', {}, [
+                _('Define one covered network per row. Hosts outside these CIDRs cannot receive Squid profiles.')
+            ]), 'info');
+            return Promise.resolve();
         };
 
         return m.render();

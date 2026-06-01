@@ -184,6 +184,7 @@ return view.extend({
         actions.addremove = false;
         var validate = actions.option(form.Button, '_validate', _('Validate configuration'));
         validate.inputstyle = 'apply';
+        validate.description = _('Run squid -k parse before saving anything.');
         validate.onclick = function() {
             return uci.save().then(function() { return callAction('parse'); }).then(function(data) {
                 notifyResult(data.success ? _('Validation succeeded') : _('Validation failed'), data, data.success ? 'info' : 'error');
@@ -191,10 +192,20 @@ return view.extend({
         };
         var apply = actions.option(form.Button, '_apply', _('Apply'));
         apply.inputstyle = 'save';
+        apply.description = _('Validate then apply the current Squid profile configuration.');
         apply.onclick = function() {
             return uci.save().then(function() { return uci.commit('squid_profiles'); }).then(function() { return callAction('apply'); }).then(function(data) {
                 notifyResult(data.success ? _('Configuration applied') : _('Apply failed'), data, data.success ? 'info' : 'error');
             });
+        };
+        var help = actions.option(form.Button, '_help', _('Quick tip'));
+        help.inputstyle = 'reset';
+        help.description = _('Only covered IPs can receive profiles. Filter by VLAN to narrow the list.');
+        help.onclick = function() {
+            ui.addNotification(null, E('p', {}, [
+                _('Select a covered network, then assign one or more profiles. Uncovered hosts stay read-only.')
+            ]), 'info');
+            return Promise.resolve();
         };
 
         return m.render();

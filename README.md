@@ -11,8 +11,8 @@ The package is designed for low-power OpenWrt routers: no external frontend fram
 - Multi-profile assignment per IP address.
 - VLAN/LAN filter and sort preference persisted in browser local storage.
 - Covered network management with IPv4 CIDR, VLAN/LAN label and optional description.
-- Profile management with name, description, allowed domains, denied domains, dynamic lists and full text fields.
-- Local domain validation for invalid domains, duplicates and obvious allow/deny conflicts.
+- Profile management with name, description, allowed domains, denied domains, dynamic lists and an exclusive full-text rules mode.
+- Local domain validation for invalid domains, duplicates, obvious allow/deny conflicts and Squid wildcard syntax.
 - First-run Squid initialization with dated backup of existing `/etc/squid/squid.conf`.
 - Dated backup before every effective rewrite of `/etc/squid/squid.conf`.
 - Global validation and apply actions, plus profile-level validate/apply buttons.
@@ -23,6 +23,12 @@ The package is designed for low-power OpenWrt routers: no external frontend fram
 ```text
 .
 ├── AGENTS.md
+├── docs/
+│   ├── user-guide.md
+│   └── screenshots/
+│       ├── main-view.svg
+│       ├── networks-view.svg
+│       └── profiles-view.svg
 ├── LICENSE
 ├── README.md
 ├── openwrt-squid-profile-ui/
@@ -31,12 +37,12 @@ The package is designed for low-power OpenWrt routers: no external frontend fram
 │       ├── etc/
 │       │   ├── init.d/squid-profiles
 │       │   └── uci-defaults/90_squid_profiles
-│       └── usr/
-│           ├── lib/lua/luci/controller/squid_profiles.lua
-│           ├── libexec/squid-profiles
-│           └── share/
-│               ├── luci/menu.d/luci-app-squid-profiles.json
-│               └── rpcd/acl.d/luci-app-squid-profiles.json
+│       ├── usr/
+│       │   ├── lib/lua/luci/controller/squid_profiles.lua
+│       │   ├── libexec/squid-profiles
+│       │   └── share/
+│       │       ├── luci/menu.d/luci-app-squid-profiles.json
+│       │       └── rpcd/acl.d/luci-app-squid-profiles.json
 │       └── www/luci-static/resources/view/squid-profiles/
 │           ├── main.js
 │           ├── networks.js
@@ -81,6 +87,8 @@ opkg install ./luci-app-squid-profiles_*.ipk
 The package depends on LuCI, rpcd, UCI and Squid. After installation, open LuCI and go to Services -> Squid Profiles.
 
 The uci-defaults script also seeds a minimal sample configuration when `squid_profiles.core` does not exist: three covered networks, two profiles and one sample machine. Existing non-empty plugin configuration is preserved.
+
+User-oriented documentation lives in [`docs/user-guide.md`](docs/user-guide.md). It includes installation steps, common workflows and reference screenshots.
 
 ## Initialization Behavior
 

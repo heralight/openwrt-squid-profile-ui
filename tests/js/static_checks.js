@@ -34,7 +34,10 @@ if (!main.includes('form.MultiValue')) fail('main view does not use multi-profil
 if (!main.includes('outside the networks covered by Squid')) fail('main view does not reject uncovered IP assignment');
 
 const profiles = fs.readFileSync(path.join(root, jsFiles[1]), 'utf8');
-if (!profiles.includes('form.TextValue')) fail('profiles view does not expose full text editing');
+if (!profiles.includes('raw_rules')) fail('profiles view does not expose raw rule editing');
+if (!profiles.includes('edit_mode')) fail('profiles view does not expose an exclusive edit mode');
 if (!profiles.includes('Domain is both allowed and denied')) fail('profiles view does not check allow/deny conflicts');
+if (!profiles.includes('leading dot')) fail('profiles view does not explain Squid wildcard syntax');
+if (!profiles.includes('.example.com')) fail('profiles view does not reference the canonical Squid wildcard syntax');
 
 console.log('js static checks passed');

@@ -99,9 +99,17 @@ backup_current_config() {
 
 normalize_name() { printf '%s' "$1" | tr -c 'A-Za-z0-9_' '_' | sed 's/^_*//;s/_*$//'; }
 
+normalize_domain() {
+	domain="$(printf '%s' "$1" | tr -d '\r' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
+	case "$domain" in \*.*) domain=".${domain#*.}" ;; esac
+	printf '%s\n' "$domain"
+}
+
 is_domain() {
-	case "$1" in ""|*"/"*|*" "*|*".."*|.*|*.) return 1 ;; esac
-	printf '%s\n' "$1" | grep -Eq '^(\*\.)?[A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?(\.[A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?)+$'
+	case "$1" in ""|*"/"*|*" "*|*".."*|*.) return 1 ;; esac
+	domain="$(normalize_domain "$1")"
+	case "$domain" in .*) domain="${domain#.}" ;; esac
+	printf '%s\n' "$domain" | grep -Eq '^[A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?(\.[A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?)+$'
 }
 
 is_ipv4_cidr() {
@@ -125,13 +133,53 @@ validate_domain_list() {
 	[ -z "$dupes" ] || fail "duplicate domain in $label: $dupes"
 }
 
+collect_profile_domains() {
+	section="$1"
+	mode="$(uci -q get "$CONFIG.$section.edit_mode" || printf 'lists')"
+	if [ "$mode" = "text" ]; then
+		allow=""
+		deny=""
+		raw="$(uci -q get "$CONFIG.$section.raw_rules" || true)"
+		while IFS= read -r line; do
+			line="$(printf '%s' "$line" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
+			case "$line" in
+				""|\#*) continue ;;
+				allow\ *)
+					domain="${line#allow }"
+					domain="$(normalize_domain "$domain")"
+					is_domain "$domain" || fail "invalid domain in profile $section raw rules: $domain"
+					allow="$allow $domain"
+				;;
+				deny\ *)
+					domain="${line#deny }"
+					domain="$(normalize_domain "$domain")"
+					is_domain "$domain" || fail "invalid domain in profile $section raw rules: $domain"
+					deny="$deny $domain"
+				;;
+				*)
+					fail "invalid rule syntax in profile $section raw rules: $line"
+				;;
+			esac
+		done <<EOF
+$raw
+EOF
+		printf '%s\n%s\n' "$allow" "$deny"
+		return 0
+	fi
+
+	allow="$(uci -q get "$CONFIG.$section.allow_domain" || true)"
+	deny="$(uci -q get "$CONFIG.$section.deny_domain" || true)"
+	printf '%s\n%s\n' "$allow" "$deny"
+}
+
 validate_uci() {
 	need_cmd uci
 	for section in $(uci show "$CONFIG" 2>/dev/null | sed -n "s/^$CONFIG\.\([^.=]*\)=profile$/\1/p"); do
 		name="$(uci -q get "$CONFIG.$section.name" || true)"
 		[ -n "$name" ] || fail "profile $section has no name"
-		allow="$(uci -q get "$CONFIG.$section.allow_domain" || true) $(uci -q get "$CONFIG.$section.allow_text" || true)"
-		deny="$(uci -q get "$CONFIG.$section.deny_domain" || true) $(uci -q get "$CONFIG.$section.deny_text" || true)"
+		profile_domains="$(collect_profile_domains "$section")"
+		allow="$(printf '%s\n' "$profile_domains" | sed -n '1p')"
+		deny="$(printf '%s\n' "$profile_domains" | sed -n '2p')"
 		validate_domain_list "$allow" "profile $name allow list"
 		validate_domain_list "$deny" "profile $name deny list"
 		conflicts="$(for d in $allow; do for e in $deny; do [ "$d" = "$e" ] && printf '%s ' "$d"; done; done || true)"
@@ -155,8 +203,9 @@ emit_profile_files() {
 	for section in $(uci show "$CONFIG" 2>/dev/null | sed -n "s/^$CONFIG\.\([^.=]*\)=profile$/\1/p"); do
 		name="$(uci -q get "$CONFIG.$section.name" || printf '%s' "$section")"
 		id="$(normalize_name "$name")"
-		allow="$(uci -q get "$CONFIG.$section.allow_domain" || true) $(uci -q get "$CONFIG.$section.allow_text" || true)"
-		deny="$(uci -q get "$CONFIG.$section.deny_domain" || true) $(uci -q get "$CONFIG.$section.deny_text" || true)"
+		profile_domains="$(collect_profile_domains "$section")"
+		allow="$(printf '%s\n' "$profile_domains" | sed -n '1p')"
+		deny="$(printf '%s\n' "$profile_domains" | sed -n '2p')"
 		write_domain_file "$DOMAINS_DIR/$id.allow.txt" $allow
 		write_domain_file "$DOMAINS_DIR/$id.deny.txt" $deny
 	done
