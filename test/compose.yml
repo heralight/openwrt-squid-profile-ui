@@ -21,3 +21,15 @@ services:
       - ./runtime/log:/tmp
     tty: true
     stdin_open: true
+
+    networks:
+      lan:
+        ipv4_address: 172.30.0.2
+
+  
+networks:
+  lan:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.30.0.0/24
