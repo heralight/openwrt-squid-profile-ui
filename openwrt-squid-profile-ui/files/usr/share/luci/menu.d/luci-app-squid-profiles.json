@@ -1,6 +1,6 @@
 {
     "admin/services/squid-profiles": {
-        "title": "Squid Profiles",
+        "title": "Mapping",
         "order": 10,
         "action": {
             "type": "view",

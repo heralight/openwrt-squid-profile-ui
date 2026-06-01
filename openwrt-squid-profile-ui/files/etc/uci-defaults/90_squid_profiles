@@ -44,12 +44,6 @@ add_list squid_profiles.@profile[-1].allow_domain='wikipedia.org'
 add_list squid_profiles.@profile[-1].allow_domain='openwrt.org'
 add_list squid_profiles.@profile[-1].deny_domain='example-adult.invalid'
 
-set squid_profiles.vm_192_168_1_10=vm
-set squid_profiles.vm_192_168_1_10.ip='192.168.1.10'
-set squid_profiles.vm_192_168_1_10.name='sample-device'
-set squid_profiles.vm_192_168_1_10.vlan='LAN'
-add_list squid_profiles.vm_192_168_1_10.profile='default'
-
 commit squid_profiles
 EOUCI
 fi

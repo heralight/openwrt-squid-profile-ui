@@ -80,6 +80,16 @@ write_mime_conf() {
 	fi
 }
 
+remove_sample_machine() {
+	if uci -q get "$CONFIG.vm_192_168_1_10" >/dev/null 2>&1 \
+		&& [ "$(uci -q get "$CONFIG.vm_192_168_1_10.ip" || true)" = "192.168.1.10" ] \
+		&& [ "$(uci -q get "$CONFIG.vm_192_168_1_10.name" || true)" = "sample-device" ]; then
+		uci delete "$CONFIG.vm_192_168_1_10"
+		uci commit "$CONFIG"
+		log "Removed legacy sample machine: $CONFIG.vm_192_168_1_10"
+	fi
+}
+
 init_tree() {
 	mkdir -p "$SQUID_DIR" "$DOMAINS_DIR" "$MAPS_DIR"
 	log "Ensured directory: $SQUID_DIR"
@@ -97,6 +107,7 @@ init_tree() {
 	fi
 
 	write_mime_conf
+	remove_sample_machine
 
 	if [ ! -f "$SQUID_CONF" ]; then
 		write_skeleton "$SQUID_CONF"
@@ -254,11 +265,11 @@ write_map_file() {
 	for vm in $(uci show "$CONFIG" 2>/dev/null | sed -n "s/^$CONFIG\.\([^.=]*\)=vm$/\1/p"); do
 		ip="$(uci -q get "$CONFIG.$vm.ip" || printf '%s' "$vm")"; profiles="$(uci -q get "$CONFIG.$vm.profile" || true)"
 		[ -n "$profiles" ] || continue
-		printf 'acl vm_%s src %s\n' "$(normalize_name "$ip")" "$ip" >> "$target"
+		printf 'acl device_%s src %s\n' "$(normalize_name "$ip")" "$ip" >> "$target"
 		for profile in $profiles; do
 			id="$(normalize_name "$profile")"
-			[ -s "$domains_dir/$id.deny.txt" ] && printf 'http_access deny vm_%s profile_%s_deny\n' "$(normalize_name "$ip")" "$id" >> "$target"
-			[ -s "$domains_dir/$id.allow.txt" ] && printf 'http_access allow vm_%s profile_%s_allow\n' "$(normalize_name "$ip")" "$id" >> "$target"
+			[ -s "$domains_dir/$id.deny.txt" ] && printf 'http_access deny device_%s profile_%s_deny\n' "$(normalize_name "$ip")" "$id" >> "$target"
+			[ -s "$domains_dir/$id.allow.txt" ] && printf 'http_access allow device_%s profile_%s_allow\n' "$(normalize_name "$ip")" "$id" >> "$target"
 		done
 	done
 }

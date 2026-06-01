@@ -1,8 +1,8 @@
 'use strict';
 'require view';
 'require form';
+'require rpc';
 'require uci';
-'require network';
 'require request';
 'require ui';
 
@@ -11,10 +11,6 @@ function ipToInt(ip) {
     if (p.length !== 4 || p.some(function(v) { return isNaN(v) || v < 0 || v > 255; }))
         return null;
     return (((p[0] << 24) >>> 0) | (p[1] << 16) | (p[2] << 8) | p[3]) >>> 0;
-}
-
-function sectionIdForIp(ip) {
-    return 'vm_' + String(ip || '').replace(/[^A-Za-z0-9_]/g, '_');
 }
 
 function ipInCidr(ip, cidr) {
@@ -45,9 +41,15 @@ function callAction(action) {
     return request.get(L.url('admin/services/squid-profiles/' + action), { timeout: 30000 }).then(responseJson);
 }
 
-function loadHostHints() {
+var callDHCPLeases = rpc.declare({
+    object: 'luci-rpc',
+    method: 'getDHCPLeases',
+    expect: { '': {} }
+});
+
+function loadLeases() {
     return Promise.race([
-        network.getHostHints().catch(function() { return {}; }),
+        callDHCPLeases().catch(function() { return {}; }),
         new Promise(function(resolve) {
             window.setTimeout(function() { resolve({}); }, 1500);
         })
@@ -65,12 +67,12 @@ return view.extend({
     load: function() {
         return Promise.all([
             uci.load('squid_profiles'),
-            loadHostHints()
+            loadLeases()
         ]);
     },
 
     render: function(data) {
-        var hostHints = data[1] || {};
+        var leasesData = data[1] || {};
         var filterKey = 'squid_profiles_vlan_filter';
         var sortKey = 'squid_profiles_sort';
         var selectedVlan = window.localStorage.getItem(filterKey) || '';
@@ -99,31 +101,47 @@ return view.extend({
 
         uci.sections('squid_profiles', 'vm', function(s) {
             var ip = s.ip || s['.name'];
-            var covered = networkForIp(ip, networks);
-            var section = s['.name'];
+            if (!ip)
+                return;
             hostsByIp[ip] = {
-                section: section,
+                section: s['.name'],
                 ip: ip,
                 name: s.name || '',
-                vlan: s.vlan || (covered ? covered.vlan : ''),
-                covered: !!covered,
+                vlan: s.vlan || '',
+                covered: false,
                 profiles: Array.isArray(s.profile) ? s.profile : (s.profile ? [ s.profile ] : [])
             };
         });
 
         try {
-            var hints = hostHints.getAllHints ? hostHints.getAllHints() : hostHints;
-            Object.keys(hints || {}).forEach(function(mac) {
-                var hint = hints[mac] || {};
-                (hint.ipv4 || []).forEach(function(ip) {
-                    var covered = networkForIp(ip, networks);
-                    if (!hostsByIp[ip]) {
-                        hostsByIp[ip] = { section: sectionIdForIp(ip), ip: ip, name: hint.name || '', vlan: covered ? covered.vlan : '', covered: !!covered, profiles: [] };
-                    }
-                    else if (!hostsByIp[ip].name && hint.name) {
-                        hostsByIp[ip].name = hint.name;
-                    }
-                });
+            var leases = Array.isArray(leasesData.dhcp_leases) ? leasesData.dhcp_leases : (Array.isArray(leasesData.leases) ? leasesData.leases : []);
+            leases.forEach(function(lease) {
+                var ip = lease.ipaddr || lease.ip || '';
+                if (!ip)
+                    return;
+                var covered = networkForIp(ip, networks);
+                var host = hostsByIp[ip];
+                if (!host) {
+                    host = {
+                        section: null,
+                        ip: ip,
+                        name: lease.hostname || lease.name || '',
+                        vlan: covered ? covered.vlan : '',
+                        covered: !!covered,
+                        profiles: []
+                    };
+                    hostsByIp[ip] = host;
+                }
+                if (!host.name)
+                    host.name = lease.hostname || lease.name || '';
+                if (!host.vlan && covered)
+                    host.vlan = covered.vlan;
+                if (!host.section)
+                    host.section = uci.add('squid_profiles', 'vm');
+                uci.set('squid_profiles', host.section, 'type', 'vm');
+                uci.set('squid_profiles', host.section, 'ip', ip);
+                uci.set('squid_profiles', host.section, 'name', host.name || '');
+                uci.set('squid_profiles', host.section, 'vlan', host.vlan || '');
             });
         }
         catch (e) {}
@@ -141,7 +159,7 @@ return view.extend({
         });
         hostList.forEach(function(host) { hostsBySection[host.section] = host; });
 
-        var m = new form.Map('squid_profiles', _('Squid Profiles - Devices'), _('Detected machines, VLAN/LAN coverage and multi-profile Squid assignments.'));
+        var m = new form.Map('squid_profiles', _('Squid Profiles - Mapping'), _('Detected devices, VLAN/LAN coverage and multi-profile Squid assignments.'));
 
         var filter = m.section(form.NamedSection, 'core', 'globals', _('View'));
         filter.addremove = false;
@@ -157,7 +175,7 @@ return view.extend({
         sf.load = function() { return selectedSort; };
         sf.write = function(sectionId, value) { window.localStorage.setItem(sortKey, value || 'ip'); };
 
-        var s = m.section(form.GridSection, 'vm', _('Machines'));
+        var s = m.section(form.GridSection, 'vm', _('Mapping'));
         s.anonymous = true;
         s.addremove = false;
         s.nodescriptions = true;
@@ -167,10 +185,16 @@ return view.extend({
                 return sectionId;
             return host.ip + (host.name ? ' - ' + host.name : '');
         };
-        s.cfgsections = function() { return hostList.map(function(host) { return host.section; }); };
+        s.cfgsections = function() {
+            return hostList.map(function(host) {
+                return host.section;
+            }).filter(function(sectionId, idx, arr) {
+                return sectionId && arr.indexOf(sectionId) === idx;
+            });
+        };
         s.load = function() {
             hostList.forEach(function(host) {
-                if (!host.covered)
+                if (!host.section)
                     return;
                 uci.set('squid_profiles', host.section, 'type', 'vm');
                 uci.set('squid_profiles', host.section, 'ip', host.ip);
@@ -203,7 +227,9 @@ return view.extend({
         };
         assigned.write = function(sectionId, value) {
             var host = hostsBySection[sectionId];
-            if (!host || !host.covered)
+            if (!host)
+                throw new Error(_('Unable to resolve the mapping row for this device.'));
+            if (!host.covered)
                 throw new Error(_('IP address is outside the networks covered by Squid.'));
             uci.set('squid_profiles', sectionId, 'profile', (Array.isArray(value) ? value : (value ? [ value ] : [])).map(function(profile) {
                 return profileIdsByName[profile] || profile;
