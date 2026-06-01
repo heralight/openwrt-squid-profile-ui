@@ -165,6 +165,27 @@ is_ipv4_cidr() {
 	return 0
 }
 
+normalize_ipv4_cidr() {
+	cidr="$1"
+	is_ipv4_cidr "$cidr" || { printf '%s\n' "$cidr"; return; }
+	addr="${cidr%/*}"
+	prefix="${cidr#*/}"
+	old_ifs="$IFS"; IFS=.; set -- $addr; IFS="$old_ifs"
+	ip=$(( ($1 << 24) + ($2 << 16) + ($3 << 8) + $4 ))
+	if [ "$prefix" -eq 0 ]; then
+		mask=0
+	else
+		mask=$(( (0xffffffff << (32 - prefix)) & 0xffffffff ))
+	fi
+	net=$(( ip & mask ))
+	printf '%d.%d.%d.%d/%d\n' \
+		$(( (net >> 24) & 255 )) \
+		$(( (net >> 16) & 255 )) \
+		$(( (net >> 8) & 255 )) \
+		$(( net & 255 )) \
+		"$prefix"
+}
+
 validate_domain_list() {
 	list="$1"; label="$2"
 	for domain in $list; do is_domain "$domain" || fail "invalid domain in $label: $domain"; done
@@ -247,7 +268,7 @@ write_map_file() {
 	: > "$target"
 	for net in $(uci show "$CONFIG" 2>/dev/null | sed -n "s/^$CONFIG\.\([^.=]*\)=network$/\1/p"); do
 		cidr="$(uci -q get "$CONFIG.$net.cidr" || uci -q get "$CONFIG.$net.subnet" || true)"
-		[ -n "$cidr" ] && printf 'acl squid_profiles_net_%s src %s\n' "$(normalize_name "$net")" "$cidr" >> "$target"
+		[ -n "$cidr" ] && printf 'acl squid_profiles_net_%s src %s\n' "$(normalize_name "$net")" "$(normalize_ipv4_cidr "$cidr")" >> "$target"
 	done
 	for section in $(uci show "$CONFIG" 2>/dev/null | sed -n "s/^$CONFIG\.\([^.=]*\)=profile$/\1/p"); do
 		name="$(uci -q get "$CONFIG.$section.name" || printf '%s' "$section")"

@@ -1,18 +1,33 @@
 {
     "admin/services/squid-profiles": {
-        "title": "Mapping",
+        "title": "Squid Profiles",
         "order": 10,
+        "action": {
+            "type": "firstchild"
+        }
+    },
+    "admin/services/squid-profiles/profiles": {
+        "title": "Profiles",
+        "order": 10,
+        "action": {
+            "type": "view",
+            "path": "squid-profiles/profiles"
+        }
+    },
+    "admin/services/squid-profiles/devices": {
+        "title": "Devices",
+        "order": 20,
         "action": {
             "type": "view",
             "path": "squid-profiles/main"
         }
     },
-    "admin/services/squid-profiles/profiles": {
-        "title": "Profiles",
-        "order": 20,
+    "admin/services/squid-profiles/lan-vlan": {
+        "title": "LAN/VLAN Mapping",
+        "order": 30,
         "action": {
             "type": "view",
-            "path": "squid-profiles/profiles"
+            "path": "squid-profiles/networks"
         }
     }
 }
