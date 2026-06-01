@@ -83,6 +83,7 @@ return view.extend({
         var networks = [];
         var hostsByIp = {};
         var hostsBySection = {};
+        var deviceSectionsByIp = {};
 
         uci.sections('squid_profiles', 'profile', function(s) {
             var sectionId = s['.name'];
@@ -103,6 +104,7 @@ return view.extend({
             var ip = s.ip || s['.name'];
             if (!ip)
                 return;
+            deviceSectionsByIp[ip] = s['.name'];
             hostsByIp[ip] = {
                 section: s['.name'],
                 ip: ip,
@@ -137,7 +139,8 @@ return view.extend({
                 if (!host.vlan && covered)
                     host.vlan = covered.vlan;
                 if (!host.section)
-                    host.section = uci.add('squid_profiles', 'vm');
+                    host.section = deviceSectionsByIp[ip] || uci.add('squid_profiles', 'vm');
+                deviceSectionsByIp[ip] = host.section;
                 uci.set('squid_profiles', host.section, 'type', 'vm');
                 uci.set('squid_profiles', host.section, 'ip', ip);
                 uci.set('squid_profiles', host.section, 'name', host.name || '');

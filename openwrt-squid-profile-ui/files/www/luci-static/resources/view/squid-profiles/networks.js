@@ -29,6 +29,20 @@ return view.extend({
 
     render: function() {
         var m = new form.Map('squid_profiles', _('Squid Profiles - Networks'), _('Define IPv4 networks covered by Squid and their VLAN or LAN label.'));
+        var profiles = [];
+        var profileNamesById = {};
+        var profileIdsByName = {};
+
+        uci.sections('squid_profiles', 'profile', function(s) {
+            var sectionId = s['.name'];
+            var name = s.name || sectionId;
+            if (name)
+                profiles.push(name);
+            if (sectionId)
+                profileNamesById[sectionId] = name || sectionId;
+            if (name)
+                profileIdsByName[name] = sectionId;
+        });
 
         var s = m.section(form.GridSection, 'network', _('Covered networks'));
         s.anonymous = false;
@@ -49,6 +63,25 @@ return view.extend({
         var description = s.option(form.Value, 'description', _('Description'));
         description.rmempty = true;
         description.description = _('Optional note for operators.');
+
+        var assigned = s.option(form.MultiValue, 'profile', _('Profiles'));
+        assigned.multiple = true;
+        assigned.size = Math.min(Math.max(profiles.length, 3), 8);
+        profiles.forEach(function(profile) { assigned.value(profile); });
+        assigned.cfgvalue = function(sectionId) {
+            var values = uci.get('squid_profiles', sectionId, 'profile');
+            return (Array.isArray(values) ? values : (values ? [ values ] : [])).map(function(value) {
+                return profileNamesById[value] || value;
+            });
+        };
+        assigned.write = function(sectionId, value) {
+            uci.set('squid_profiles', sectionId, 'profile', (Array.isArray(value) ? value : (value ? [ value ] : [])).map(function(profile) {
+                return profileIdsByName[profile] || profile;
+            }));
+        };
+        assigned.remove = function(sectionId) {
+            uci.unset('squid_profiles', sectionId, 'profile');
+        };
 
         var actions = m.section(form.NamedSection, 'core', 'globals', _('Actions'));
         actions.addremove = false;

@@ -240,6 +240,10 @@ validate_uci() {
 		vlan="$(uci -q get "$CONFIG.$section.vlan" || true)"
 		is_ipv4_cidr "$cidr" || fail "invalid IPv4 CIDR in network $section: $cidr"
 		[ -n "$vlan" ] || fail "network $cidr has no VLAN/LAN label"
+		profiles="$(uci -q get "$CONFIG.$section.profile" || true)"
+		for profile in $profiles; do
+			[ -n "$profile" ] || fail "network $cidr has an empty profile entry"
+		done
 	done
 }
 
@@ -261,6 +265,17 @@ write_map_file() {
 		id="$(normalize_name "$name")"
 		[ -s "$domains_dir/$id.allow.txt" ] && printf 'acl profile_%s_allow dstdomain "%s"\n' "$id" "$domains_dir/$id.allow.txt" >> "$target"
 		[ -s "$domains_dir/$id.deny.txt" ] && printf 'acl profile_%s_deny dstdomain "%s"\n' "$id" "$domains_dir/$id.deny.txt" >> "$target"
+	done
+	for net in $(uci show "$CONFIG" 2>/dev/null | sed -n "s/^$CONFIG\.\([^.=]*\)=network$/\1/p"); do
+		cidr="$(uci -q get "$CONFIG.$net.cidr" || uci -q get "$CONFIG.$net.subnet" || true)"
+		profiles="$(uci -q get "$CONFIG.$net.profile" || true)"
+		[ -n "$cidr" ] || continue
+		net_id="$(normalize_name "$net")"
+		for profile in $profiles; do
+			id="$(normalize_name "$profile")"
+			[ -s "$domains_dir/$id.deny.txt" ] && printf 'http_access deny squid_profiles_net_%s profile_%s_deny\n' "$net_id" "$id" >> "$target"
+			[ -s "$domains_dir/$id.allow.txt" ] && printf 'http_access allow squid_profiles_net_%s profile_%s_allow\n' "$net_id" "$id" >> "$target"
+		done
 	done
 	for vm in $(uci show "$CONFIG" 2>/dev/null | sed -n "s/^$CONFIG\.\([^.=]*\)=vm$/\1/p"); do
 		ip="$(uci -q get "$CONFIG.$vm.ip" || printf '%s' "$vm")"; profiles="$(uci -q get "$CONFIG.$vm.profile" || true)"
