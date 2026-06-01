@@ -145,6 +145,12 @@ return view.extend({
         s.anonymous = true;
         s.addremove = false;
         s.nodescriptions = true;
+        s.sectiontitle = function(sectionId) {
+            var host = hostsBySection[sectionId];
+            if (!host)
+                return sectionId;
+            return host.ip + (host.name ? ' - ' + host.name : '');
+        };
         s.cfgsections = function() { return hostList.map(function(host) { return host.section; }); };
         s.load = function() {
             hostList.forEach(function(host) {
