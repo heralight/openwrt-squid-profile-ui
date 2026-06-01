@@ -10,8 +10,8 @@ services:
       - "2222:22"
     volumes:
       - ../openwrt-squid-profile-ui/files/usr/share/luci/menu.d/luci-app-squid-profiles.json:/usr/share/luci/menu.d/luci-app-squid-profiles.json
-      - ../openwrt-squid-profile-ui/files/usr/share/luci/controller/squid-profiles.lua:/usr/share/luci/controller/squid-profiles.lua
-      - ../openwrt-squid-profile-ui/files/usr/share/luci/htdocs/luci-static/resources/view/squid-profiles:/usr/share/luci/htdocs/luci-static/resources/view/squid-profiles
+      - ../openwrt-squid-profile-ui/files/usr/lib/lua/luci/controller/squid_profiles.lua:/usr/lib/lua/luci/controller/squid_profiles.lua
+      - ../openwrt-squid-profile-ui/files/www/luci-static/resources/view/squid-profiles:/www/luci-static/resources/view/squid-profiles
       - ../openwrt-squid-profile-ui/files/usr/share/rpcd/acl.d/luci-app-squid-profiles.json:/usr/share/rpcd/acl.d/luci-app-squid-profiles.json
       - ../openwrt-squid-profile-ui/files/usr/libexec/squid-profiles:/usr/libexec/squid-profiles
       - ../openwrt-squid-profile-ui/files/etc/uci-defaults/90_squid_profiles:/etc/uci-defaults/90_squid_profiles

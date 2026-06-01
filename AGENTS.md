@@ -5,8 +5,8 @@ This repository contains a LuCI/OpenWrt package for managing Squid profiles by I
 ## Project Layout
 
 - `openwrt-squid-profile-ui/`: installable OpenWrt/LuCI package.
-- `openwrt-squid-profile-ui/files/usr/share/luci/htdocs/luci-static/resources/view/squid-profiles/`: LuCI JavaScript views.
-- `openwrt-squid-profile-ui/files/usr/share/luci/controller/squid-profiles.lua`: LuCI HTTP endpoints used by the views.
+- `openwrt-squid-profile-ui/files/www/luci-static/resources/view/squid-profiles/`: LuCI JavaScript views.
+- `openwrt-squid-profile-ui/files/usr/lib/lua/luci/controller/squid_profiles.lua`: LuCI HTTP endpoints used by the views.
 - `openwrt-squid-profile-ui/files/usr/libexec/squid-profiles`: shell helper that initializes, validates, generates and applies Squid configuration.
 - `openwrt-squid-profile-ui/files/etc/uci-defaults/`: package first-install defaults.
 - `openwrt-squid-profile-ui/files/etc/init.d/`: OpenWrt init integration.

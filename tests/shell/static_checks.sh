@@ -27,8 +27,8 @@ grep -q 'write_mime_conf' "$HELPER" || fail "helper does not create Squid MIME t
 if grep -q 'pinger_enable' "$HELPER"; then fail "helper should not emit pinger_enable on OpenWrt Squid"; fi
 
 grep -q 'luci-app-squid-profiles.json:/usr/share/luci/menu.d/luci-app-squid-profiles.json' "$COMPOSE" || fail "compose does not mount LuCI menu file"
-grep -q 'squid-profiles.lua:/usr/share/luci/controller/squid-profiles.lua' "$COMPOSE" || fail "compose does not mount LuCI controller"
-grep -q 'view/squid-profiles:/usr/share/luci/htdocs/luci-static/resources/view/squid-profiles' "$COMPOSE" || fail "compose does not mount LuCI view directory"
+grep -q 'squid_profiles.lua:/usr/lib/lua/luci/controller/squid_profiles.lua' "$COMPOSE" || fail "compose does not mount LuCI controller"
+grep -q 'view/squid-profiles:/www/luci-static/resources/view/squid-profiles' "$COMPOSE" || fail "compose does not mount LuCI view directory"
 grep -q 'squid-profiles:/etc/init.d/squid-profiles' "$COMPOSE" || fail "compose does not mount plugin init script"
 grep -q './runtime/etc-squid:/etc/squid' "$COMPOSE" || fail "compose does not mount Squid runtime tree"
 

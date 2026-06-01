@@ -37,7 +37,7 @@ The package is designed for low-power OpenWrt routers: no external frontend fram
 │               ├── luci/
 │               │   ├── controller/squid-profiles.lua
 │               │   ├── menu.d/luci-app-squid-profiles.json
-│               │   └── htdocs/luci-static/resources/view/squid-profiles/
+│               └── www/luci-static/resources/view/squid-profiles/
 │               │       ├── main.js
 │               │       ├── networks.js
 │               │       └── profiles.js

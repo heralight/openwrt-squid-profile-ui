@@ -9,9 +9,9 @@ const jsonFiles = [
   'openwrt-squid-profile-ui/files/usr/share/rpcd/acl.d/luci-app-squid-profiles.json'
 ];
 const jsFiles = [
-  'openwrt-squid-profile-ui/files/usr/share/luci/htdocs/luci-static/resources/view/squid-profiles/main.js',
-  'openwrt-squid-profile-ui/files/usr/share/luci/htdocs/luci-static/resources/view/squid-profiles/profiles.js',
-  'openwrt-squid-profile-ui/files/usr/share/luci/htdocs/luci-static/resources/view/squid-profiles/networks.js'
+  'openwrt-squid-profile-ui/files/www/luci-static/resources/view/squid-profiles/main.js',
+  'openwrt-squid-profile-ui/files/www/luci-static/resources/view/squid-profiles/profiles.js',
+  'openwrt-squid-profile-ui/files/www/luci-static/resources/view/squid-profiles/networks.js'
 ];
 
 function fail(message) {
