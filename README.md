@@ -18,12 +18,65 @@ The package is designed for low-power OpenWrt routers: no external frontend fram
 - Global validation and apply actions, plus profile-level validate/apply buttons.
 - Mandatory `squid -k parse` before any Squid reload.
 
+## Storage and Validation Model
+
+The plugin keeps its source of truth in UCI, under `/etc/config/squid_profiles`.
+The runtime Squid files are generated from that config and written to `/etc/squid`.
+
+UCI sections are:
+
+- `core` (`globals` section type): plugin-wide switch state.
+- `network` (`network` section type): covered CIDR, VLAN/LAN label and optional description.
+- `profile` (`profile` section type): profile name, description, allow/deny domains, edit mode.
+- `vm` (`vm` section type): machine IP, hostname, VLAN/LAN label and assigned profiles.
+
+The generated runtime tree is:
+
+```text
+/etc/squid/
+├── squid.conf
+├── domains/
+└── maps/
+```
+
+Validation is always done before apply:
+
+1. UCI structure and domain syntax are checked by `/usr/libexec/squid-profiles validate`.
+2. The helper generates a temporary Squid config.
+3. Squid validates it with `squid -k parse`.
+4. Only then the helper copies the config, creates a dated backup and reloads Squid.
+
+For SSH work, prefer the helper and `uci` commands:
+
+```sh
+uci show squid_profiles
+/usr/libexec/squid-profiles validate
+/usr/libexec/squid-profiles apply
+```
+
+If you edit `/etc/config/squid_profiles` directly, always finish with:
+
+```sh
+uci commit squid_profiles
+/usr/libexec/squid-profiles validate
+/usr/libexec/squid-profiles apply
+```
+
+The helper also supports:
+
+```sh
+/usr/libexec/squid-profiles init
+```
+
+This creates the Squid skeleton and backups any unmanaged `/etc/squid/squid.conf` before replacement.
+
 ## Repository Structure
 
 ```text
 .
 ├── AGENTS.md
 ├── docs/
+│   ├── technical.md
 │   ├── user-guide.md
 │   └── screenshots/
 │       ├── main-view.svg
@@ -89,6 +142,7 @@ The package depends on LuCI, rpcd, UCI and Squid. After installation, open LuCI 
 The uci-defaults script also seeds a minimal sample configuration when `squid_profiles.core` does not exist: three covered networks, two profiles and one sample machine. Existing non-empty plugin configuration is preserved.
 
 User-oriented documentation lives in [`docs/user-guide.md`](docs/user-guide.md). It includes installation steps, common workflows and reference screenshots.
+Technical notes live in [`docs/technical.md`](docs/technical.md). It explains the UCI schema, runtime files and SSH workflows.
 
 ## Initialization Behavior
 
