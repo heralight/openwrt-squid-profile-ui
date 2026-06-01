@@ -14,13 +14,5 @@
             "type": "view",
             "path": "squid-profiles/profiles"
         }
-    },
-    "admin/services/squid-profiles/networks": {
-        "title": "Networks",
-        "order": 30,
-        "action": {
-            "type": "view",
-            "path": "squid-profiles/networks"
-        }
     }
 }

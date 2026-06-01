@@ -240,6 +240,45 @@ return view.extend({
         };
         assigned.remove = function(sectionId) { uci.unset('squid_profiles', sectionId, 'profile'); };
 
+        var networkSection = m.section(form.GridSection, 'network', _('Network mappings'));
+        networkSection.anonymous = false;
+        networkSection.addremove = true;
+        networkSection.nodescriptions = true;
+
+        var netCidr = networkSection.option(form.Value, 'cidr', _('IPv4 CIDR'));
+        netCidr.rmempty = false;
+        netCidr.datatype = 'cidr4';
+        netCidr.placeholder = '192.168.31.0/24';
+        netCidr.description = _('Covered client subnet.');
+
+        var netVlan = networkSection.option(form.Value, 'vlan', _('VLAN/LAN'));
+        netVlan.rmempty = false;
+        netVlan.placeholder = 'VLAN 31';
+        netVlan.description = _('Label used in the devices table.');
+
+        var netDescription = networkSection.option(form.Value, 'description', _('Description'));
+        netDescription.rmempty = true;
+        netDescription.description = _('Optional note for operators.');
+
+        var netProfiles = networkSection.option(form.MultiValue, 'profile', _('Profiles'));
+        netProfiles.multiple = true;
+        netProfiles.size = Math.min(Math.max(profiles.length, 3), 8);
+        profiles.forEach(function(profile) { netProfiles.value(profile); });
+        netProfiles.cfgvalue = function(sectionId) {
+            var values = uci.get('squid_profiles', sectionId, 'profile');
+            return (Array.isArray(values) ? values : (values ? [ values ] : [])).map(function(value) {
+                return profileNamesById[value] || value;
+            });
+        };
+        netProfiles.write = function(sectionId, value) {
+            uci.set('squid_profiles', sectionId, 'profile', (Array.isArray(value) ? value : (value ? [ value ] : [])).map(function(profile) {
+                return profileIdsByName[profile] || profile;
+            }));
+        };
+        netProfiles.remove = function(sectionId) {
+            uci.unset('squid_profiles', sectionId, 'profile');
+        };
+
         var actions = m.section(form.NamedSection, 'core', 'globals', _('Actions'));
         actions.addremove = false;
         var validate = actions.option(form.Button, '_validate', _('Validate configuration'));
