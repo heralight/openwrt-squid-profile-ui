@@ -30,6 +30,20 @@ LuCI exposes one application group under **Services -> Squid Profiles** with thr
 - `Devices`
 - `LAN/VLAN Mapping`
 
+## Screenshots
+
+### Main menu
+
+![Plugin main menu](docs/screenshots/Plugin%20main%20menu.png)
+
+### Devices and profiles
+
+![Devices profiles mapping list](docs/screenshots/Devices%20Profiles%20Mapping%20List.png)
+
+### LAN/VLAN mapping editor
+
+![LAN/VLAN profiles mapping editor](docs/screenshots/LAN-VLAN%20Profiles%20Mapping%20Edition.png)
+
 ## Storage and Validation Model
 
 The plugin keeps its source of truth in UCI, under `/etc/config/squid_profiles`.
@@ -94,9 +108,14 @@ This creates the Squid skeleton and backups any unmanaged `/etc/squid/squid.conf
 │   ├── packaging.md
 │   ├── user-guide.md
 │   └── screenshots/
-│       ├── main-view.svg
-│       ├── networks-view.svg
-│       └── profiles-view.svg
+│       ├── Devices Profiles Mapping Edition.png
+│       ├── Devices Profiles Mapping List.png
+│       ├── LAN-VLAN Profiles Mapping Edition.png
+│       ├── LAN-VLAN Profiles Mapping List.png
+│       ├── Plugin main menu.png
+│       ├── Profile Edition.png
+│       ├── Profiles Edition List .png
+│       └── Profiles List .png
 ├── feeds.conf.example
 ├── LICENSE
 ├── README.md

@@ -24,6 +24,17 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Cache SDK build metadata
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/openwrt
+            ~/.ccache
+          key: openwrt-sdk-${{ env.ARCH }}-${{ github.ref_name }}-${{ hashFiles('openwrt-squid-profile-ui/Makefile', 'openwrt-squid-profile-ui/files/**', '.github/workflows/openwrt-package.yml') }}
+          restore-keys: |
+            openwrt-sdk-${{ env.ARCH }}-${{ github.ref_name }}-
+            openwrt-sdk-${{ env.ARCH }}-
+
       - name: Build package with OpenWrt SDK action
         uses: openwrt/gh-action-sdk@main
         env:

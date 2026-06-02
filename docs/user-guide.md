@@ -130,17 +130,33 @@ Filter the `Devices` list by VLAN or LAN label to review which devices are cover
 
 The following reference screenshots are included with the repository.
 
-### Devices
+### Main menu
 
-![Main machine list](screenshots/main-view.svg)
+![Main menu](screenshots/Plugin%20main%20menu.png)
+
+### Profiles list
+
+![Profiles list](screenshots/Profiles%20List%20.png)
 
 ### Profile editor
 
-![Profile editor](screenshots/profiles-view.svg)
+![Profile editor](screenshots/Profile%20Edition.png)
 
-### LAN/VLAN Mapping
+### Devices mapping
 
-![Covered networks](screenshots/networks-view.svg)
+![Devices mapping list](screenshots/Devices%20Profiles%20Mapping%20List.png)
+
+### Devices mapping editor
+
+![Devices mapping editor](screenshots/Devices%20Profiles%20Mapping%20Edition.png)
+
+### LAN/VLAN mapping
+
+![LAN/VLAN mapping list](screenshots/LAN-VLAN%20Profiles%20Mapping%20List.png)
+
+### LAN/VLAN mapping editor
+
+![LAN/VLAN mapping editor](screenshots/LAN-VLAN%20Profiles%20Mapping%20Edition.png)
 
 ## Suggested Workflow
 

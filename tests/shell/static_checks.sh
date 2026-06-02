@@ -48,6 +48,6 @@ grep -q 'PACKAGES: ${{ env.PACKAGE_NAME }}' "$WORKFLOW" || fail "workflow does n
 grep -q 'softprops/action-gh-release@v2' "$WORKFLOW" || fail "workflow does not publish GitHub release assets"
 grep -q '*.apk' "$WORKFLOW" || fail "workflow does not collect APK artifacts"
 if grep -F -q '*.ipk' "$WORKFLOW"; then fail "workflow should not collect legacy package artifacts"; fi
-grep -q 'wget -qO- https://api.github.com/repos/heralight/openwrt-squid-profile-ui/releases/latest' "$ROOT/README.md" || fail "README does not document release-based wget retrieval"
+grep -q 'https://api.github.com/repos/${GITHUB_REPOSITORY}/releases/latest' "$ROOT/README.md" || fail "README does not document release-based wget retrieval"
 
 printf 'shell static checks passed\n'
