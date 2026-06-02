@@ -41,6 +41,11 @@ jobs:
           rm -rf sdk-feed
           mkdir -p sdk-feed/luci-app-squid-profiles
           cp -a openwrt-squid-profile-ui/. sdk-feed/luci-app-squid-profiles/
+          git init sdk-feed
+          git -C sdk-feed config user.name "github-actions"
+          git -C sdk-feed config user.email "github-actions@github.com"
+          git -C sdk-feed add .
+          git -C sdk-feed commit -m "stage feed snapshot" --no-gpg-sign
 
       - name: Build package with OpenWrt SDK action
         uses: openwrt/gh-action-sdk@main
