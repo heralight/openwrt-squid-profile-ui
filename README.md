@@ -96,8 +96,6 @@ This creates the Squid skeleton and backups any unmanaged `/etc/squid/squid.conf
 ├── README.md
 ├── packages/
 │   └── luci-app-squid-profiles -> ../openwrt-squid-profile-ui
-├── scripts/
-│   └── openwrt-opkg-index.sh
 ├── openwrt-squid-profile-ui/
 │   ├── Makefile
 │   ├── LICENSE
@@ -149,28 +147,28 @@ Runtime dependencies are:
 +luci-base +luci-compat +luci-lua-runtime +rpcd +uci +squid
 ```
 
-Example SDK flow:
+Example OpenWrt 25 SDK Docker flow:
 
 ```sh
-cd /path/to/openwrt-sdk
+docker run --rm -v "$(pwd)":/work:ro -v "$(pwd)/bin":/builder/bin -it openwrt/sdk:mediatek-mt7622-main
+[ ! -d ./scripts ] && ./setup.sh
 mkdir -p package/feeds/custom
-ln -s /path/to/openwrt-squid-profile-ui/openwrt-squid-profile-ui package/feeds/custom/luci-app-squid-profiles
+cp -a /work/openwrt-squid-profile-ui package/feeds/custom/luci-app-squid-profiles
 ./scripts/feeds update -a
 ./scripts/feeds install luci-app-squid-profiles
-make package/luci-app-squid-profiles/compile V=s
-```
-
-Recommended package checks:
-
-```sh
+make defconfig
 make package/luci-app-squid-profiles/check V=s
-make package/luci-app-squid-profiles/check V=s FIXUP=1
+make package/luci-app-squid-profiles/compile V=s
+make package/index V=s
 ```
 
-Install the generated IPK on the router:
+Install the generated APK on the router:
 
 ```sh
-opkg install ./luci-app-squid-profiles_*.ipk
+scp bin/packages/*/*/luci-app-squid-profiles_*.apk root@192.168.1.1:/tmp/
+ssh root@192.168.1.1
+apk update
+apk add --allow-untrusted /tmp/luci-app-squid-profiles_*.apk
 ```
 
 The package depends on LuCI, rpcd, UCI and Squid. After installation, open LuCI and go to Services -> Squid Profiles.
@@ -185,7 +183,6 @@ The repository also includes:
 
 - `.github/workflows/openwrt-package.yml` to build SDK packages and upload package/repository artifacts.
 - `feeds.conf.example` to consume this repository as an OpenWrt feed.
-- `scripts/openwrt-opkg-index.sh` to generate `Packages`, `Packages.gz` and an optional `Packages.sig` OPKG index.
 
 ## Initialization Behavior
 
@@ -258,7 +255,7 @@ It exposes:
 2222 -> 22
 ```
 
-Mounted development paths are file-level mounts for the LuCI menu, controller, RPC ACL, helper, init script and view directory. Runtime data uses directory mounts for `/etc/squid`, `/etc/config` and `/tmp`; the test entrypoint copies the image default OpenWrt config files into the mounted `/etc/config` directory if they are missing. This keeps the base LuCI installation from the image intact while local plugin edits remain visible without rebuilding the IPK.
+Mounted development paths are file-level mounts for the LuCI menu, controller, RPC ACL, helper, init script and view directory. Runtime data uses directory mounts for `/etc/squid`, `/etc/config` and `/tmp`; the test entrypoint copies the image default OpenWrt config files into the mounted `/etc/config` directory if they are missing. This keeps the base LuCI installation from the image intact while local plugin edits remain visible without rebuilding the package.
 
 ## Debug Commands
 
@@ -284,13 +281,20 @@ These checks are intentionally lightweight and do not replace OpenWrt SDK builds
 
 ## Package Publication Notes
 
-OpenWrt `24.10` and older use OPKG/IPK package feeds. OpenWrt `25.12` and newer use APK package feeds. Build and publish separate feeds per OpenWrt release and target; do not mix IPK and APK formats in one feed.
+This repository targets OpenWrt 25/APK. The GitHub Actions workflow uses the official prebuilt OpenWrt SDK Docker image, defaulting to:
+
+```text
+openwrt/sdk:mediatek-mt7622-main
+```
+
+It runs the SDK container, compiles `luci-app-squid-profiles`, runs `make package/index V=s`, and uploads APK package/repository artifacts.
 
 Official references:
 
-- OPKG package manager: <https://openwrt.org/docs/guide-user/additional-software/opkg>
+- OpenWrt Docker images: <https://github.com/openwrt/docker>
 - APK package manager: <https://openwrt.org/docs/guide-user/additional-software/apk>
 - Release and repository signatures: <https://openwrt.org/docs/guide-user/security/release_signatures>
+- OpenWrt public keys: <https://openwrt.org/docs/guide-user/security/signatures>
 
 ## Known Limitations
 

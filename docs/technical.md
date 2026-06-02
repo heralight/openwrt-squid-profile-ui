@@ -120,7 +120,7 @@ PKG_LICENSE_FILES:=LICENSE
 PKGARCH:=all
 ```
 
-The package ships scripts and LuCI resources, so `Build/Compile` is empty and `Package/luci-app-squid-profiles/install` copies files from `files/` into the IPK root.
+The package ships scripts and LuCI resources, so `Build/Compile` is empty and `Package/luci-app-squid-profiles/install` copies files from `files/` into the package root.
 
 Runtime dependencies:
 
@@ -128,11 +128,14 @@ Runtime dependencies:
 +luci-base +luci-compat +luci-lua-runtime +rpcd +uci +squid
 ```
 
-Run package checks in an SDK:
+Run package checks in an OpenWrt 25 SDK container:
 
 ```sh
+[ ! -d ./scripts ] && ./setup.sh
+make defconfig
 make package/luci-app-squid-profiles/check V=s
 make package/luci-app-squid-profiles/compile V=s
+make package/index V=s
 ```
 
 See [`packaging.md`](packaging.md) for the full SDK flow and Netgear WAX206 build example.
@@ -152,18 +155,13 @@ GitHub Actions workflow:
 .github/workflows/openwrt-package.yml
 ```
 
-The workflow downloads an OpenWrt SDK, runs package metadata checks, compiles the package, runs `make package/index`, and uploads package artifacts. It collects both `*.ipk` and `*.apk` so it can work with OPKG-based and APK-based SDKs.
-
-For OPKG feeds, `scripts/openwrt-opkg-index.sh` generates:
+The workflow uses a prebuilt OpenWrt SDK Docker image, runs package metadata checks, compiles the package, runs `make package/index`, and uploads APK package/repository artifacts. The default SDK image is:
 
 ```text
-Packages
-Packages.gz
-Packages.manifest
-Packages.sig
+openwrt/sdk:mediatek-mt7622-main
 ```
 
-`Packages.sig` is produced only when a usign secret key is provided. Keep OPKG usign keys separate from APK feed signing keys.
+The target is OpenWrt 25/APK only.
 
 ## SSH Workflows
 

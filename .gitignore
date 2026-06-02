@@ -148,8 +148,6 @@ test/squid_maps
 test/runtime
 
 # OpenWrt SDK and package build outputs
-openwrt-sdk-*/
-OpenWrt-SDK-*/
 sdk/
 dl/
 bin/
@@ -158,21 +156,15 @@ build_dir/
 tmp/
 logs/
 artifacts/
-*.ipk
 *.apk
 *.adb
 packages.adb
 packages.adb.sig
-Packages
-Packages.gz
-Packages.manifest
-Packages.sig
+APKINDEX.tar.gz
+APKINDEX.tar.gz.sig
 
 # Signing keys and local feed secrets
 *.sec
 *.key
-repo.sec
-repo.pub
-usign.key
-usign.pub
+*.pub
 keys/

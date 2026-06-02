@@ -8,17 +8,21 @@ The interface is designed for low-power routers: it keeps the configuration UCI-
 
 ### OpenWrt package install
 
-Install the generated IPK on the router:
+Install the generated APK on an OpenWrt 25 router:
 
 ```sh
-opkg install ./luci-app-squid-profiles_*.ipk
+apk update
+apk add --allow-untrusted ./luci-app-squid-profiles_*.apk
 ```
 
-The package depends on LuCI, rpcd, UCI and Squid. Build it from the OpenWrt SDK with:
+The package depends on LuCI, rpcd, UCI and Squid. Build it with an OpenWrt 25 SDK Docker image:
 
 ```sh
+[ ! -d ./scripts ] && ./setup.sh
+make defconfig
 make package/luci-app-squid-profiles/check V=s
 make package/luci-app-squid-profiles/compile V=s
+make package/index V=s
 ```
 
 See [`packaging.md`](packaging.md) for a full SDK workflow and a Netgear WAX206 example.

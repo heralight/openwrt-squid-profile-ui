@@ -1,4 +1,4 @@
-FROM openwrt/rootfs:x86-64-24.10.7
+FROM openwrt/rootfs:x86-64-25.12.3
 
 RUN mkdir -p /var/lock /var/run /tmp/opkg-lists && \
     opkg update && \
