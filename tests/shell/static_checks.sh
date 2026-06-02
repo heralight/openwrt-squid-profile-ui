@@ -7,7 +7,6 @@ HELPER="$ROOT/openwrt-squid-profile-ui/files/usr/libexec/squid-profiles"
 UCI_DEFAULTS="$ROOT/openwrt-squid-profile-ui/files/etc/uci-defaults/90_squid_profiles"
 INITD="$ROOT/openwrt-squid-profile-ui/files/etc/init.d/squid-profiles"
 WORKFLOW="$ROOT/.github/workflows/openwrt-package.yml"
-FEED_LINK="$ROOT/packages/luci-app-squid-profiles"
 COMPOSE="$ROOT/test/compose.yml"
 
 fail() { printf 'FAIL: %s\n' "$*" >&2; exit 1; }
@@ -18,7 +17,8 @@ for script in "$HELPER" "$UCI_DEFAULTS" "$INITD"; do
 done
 
 [ -f "$WORKFLOW" ] || fail "missing GitHub Actions workflow"
-[ -L "$FEED_LINK" ] || fail "missing feed symlink: $FEED_LINK"
+[ -d "$ROOT/openwrt-squid-profile-ui/files" ] || fail "missing package source tree"
+[ ! -e "$ROOT/packages/luci-app-squid-profiles" ] || fail "ambiguous duplicate package path exists under packages/"
 
 grep -q 'unique_backup_path' "$HELPER" || fail "helper does not define unique backup handling"
 grep -q 'backup_current_config' "$HELPER" || fail "helper does not back up before apply"
@@ -44,6 +44,7 @@ grep -q './runtime/config:/etc/config' "$COMPOSE" || fail "compose does not moun
 grep -q 'openwrt/sdk:mediatek-mt7622-main' "$WORKFLOW" || fail "workflow does not default to OpenWrt SDK Docker image"
 grep -q 'docker run --rm' "$WORKFLOW" || fail "workflow does not use OpenWrt SDK Docker container"
 grep -q 'chmod 0777 sdk-bin' "$WORKFLOW" || fail "workflow does not make /builder/bin bind mount writable"
+grep -q 'cp -a /work/openwrt-squid-profile-ui' "$WORKFLOW" || fail "workflow does not copy the single package source into SDK"
 grep -q './setup.sh' "$WORKFLOW" || fail "workflow does not initialize SDK container"
 grep -q 'make "package/${PACKAGE_NAME}/compile" V=s' "$WORKFLOW" || fail "workflow does not compile package"
 grep -q 'make package/index V=s' "$WORKFLOW" || fail "workflow does not generate package index"

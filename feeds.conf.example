@@ -1,3 +1,8 @@
-# Add this line to an OpenWrt buildroot or SDK feeds.conf.
-# Replace the URL with your fork or private repository URL when needed.
-src-git squid_profiles https://github.com/heralight/openwrt-squid-profile-ui.git
+# This repository keeps its package source in ./openwrt-squid-profile-ui.
+# For direct SDK builds, use the documented Docker workflow, which copies that
+# directory to package/feeds/custom/luci-app-squid-profiles.
+#
+# To publish a conventional OpenWrt feed, mirror the package directory to a
+# feed repository root as ./luci-app-squid-profiles, then add that feed:
+#
+# src-git squid_profiles https://github.com/heralight/openwrt-squid-profile-feed.git

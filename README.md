@@ -94,8 +94,6 @@ This creates the Squid skeleton and backups any unmanaged `/etc/squid/squid.conf
 ├── feeds.conf.example
 ├── LICENSE
 ├── README.md
-├── packages/
-│   └── luci-app-squid-profiles -> ../openwrt-squid-profile-ui
 ├── openwrt-squid-profile-ui/
 │   ├── Makefile
 │   ├── LICENSE
@@ -128,7 +126,7 @@ This creates the Squid skeleton and backups any unmanaged `/etc/squid/squid.conf
 
 ## Installation on OpenWrt
 
-Build the package with the OpenWrt SDK or include `openwrt-squid-profile-ui` in a package feed. The package Makefile is a normal OpenWrt source package Makefile with explicit `Package/luci-app-squid-profiles` blocks.
+Build the package with the OpenWrt SDK Docker image. The single source of truth for the OpenWrt package is `openwrt-squid-profile-ui/`; there is no second package copy elsewhere in this repository. The package Makefile is a normal OpenWrt source package Makefile with explicit `Package/luci-app-squid-profiles` blocks.
 
 It declares:
 
@@ -182,7 +180,7 @@ Packaging and WAX206 build notes live in [`docs/packaging.md`](docs/packaging.md
 The repository also includes:
 
 - `.github/workflows/openwrt-package.yml` to build SDK packages and upload package/repository artifacts.
-- `feeds.conf.example` to consume this repository as an OpenWrt feed.
+- `feeds.conf.example` as a note for feed publication; the CI workflow copies `openwrt-squid-profile-ui/` directly into the SDK.
 
 ## Initialization Behavior
 

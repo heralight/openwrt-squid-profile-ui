@@ -142,11 +142,13 @@ See [`packaging.md`](packaging.md) for the full SDK flow and Netgear WAX206 buil
 
 ## Feed and CI Publishing
 
-The repository can be consumed as an OpenWrt feed through `feeds.conf.example`.
-The feed package entry is exposed at:
+The single package source is `openwrt-squid-profile-ui/`. There is no duplicate package tree under `packages/`.
 
-```text
-packages/luci-app-squid-profiles -> ../openwrt-squid-profile-ui
+For SDK builds, copy that directory into the SDK package namespace:
+
+```sh
+mkdir -p package/feeds/custom
+cp -a /work/openwrt-squid-profile-ui package/feeds/custom/luci-app-squid-profiles
 ```
 
 GitHub Actions workflow:
