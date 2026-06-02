@@ -10,7 +10,7 @@ This repository contains a LuCI/OpenWrt package for managing Squid profiles by I
 - `openwrt-squid-profile-ui/files/usr/libexec/squid-profiles`: shell helper that initializes, validates, generates and applies Squid configuration.
 - `openwrt-squid-profile-ui/files/etc/uci-defaults/`: package first-install defaults.
 - `openwrt-squid-profile-ui/files/etc/init.d/`: OpenWrt init integration.
-- `test/`: Podman/OpenWrt rootfs test environment.
+- `test-platform/`: Podman/OpenWrt rootfs test environment.
 - `tests/`: lightweight repository checks.
 
 ## Coding Conventions
@@ -33,7 +33,7 @@ node tests/js/static_checks.js
 Run the OpenWrt test container:
 
 ```sh
-podman compose -f test/compose.yml up --build
+podman compose -f test-platform/compose.yml up --build
 podman exec -it openwrt-squid-profile-ui ash
 ```
 
