@@ -61,6 +61,8 @@ openwrt/sdk:<target>-<subtarget>-<branch-or-version>
 For Netgear WAX206 development, use the Mediatek MT7622 SDK from the OpenWrt main branch:
 
 ```sh
+mkdir -p bin
+chmod 0777 bin
 docker run --rm \
   -v "$(pwd)":/work:ro \
   -v "$(pwd)/bin":/builder/bin \
@@ -73,7 +75,7 @@ Inside the container:
 [ ! -d ./scripts ] && ./setup.sh
 mkdir -p package/feeds/custom
 cp -a /work/openwrt-squid-profile-ui package/feeds/custom/luci-app-squid-profiles
-./scripts/feeds update -a
+./scripts/feeds update packages luci
 ./scripts/feeds install luci-app-squid-profiles
 make defconfig
 make package/luci-app-squid-profiles/check V=s
@@ -197,7 +199,7 @@ docker run --rm -v "$(pwd)":/work:ro -v "$(pwd)/bin":/builder/bin -it openwrt/sd
 [ ! -d ./scripts ] && ./setup.sh
 mkdir -p package/feeds/custom
 cp -a /work/openwrt-squid-profile-ui package/feeds/custom/luci-app-squid-profiles
-./scripts/feeds update -a
+./scripts/feeds update packages luci
 ./scripts/feeds install luci-app-squid-profiles
 make defconfig
 make package/luci-app-squid-profiles/check V=s
@@ -248,5 +250,5 @@ The plugin must not reload Squid unless validation succeeds.
 - Wrong SDK image: use the `openwrt/sdk` tag matching the target and OpenWrt 25 branch used by the router firmware.
 - Missing dependencies at install: run `apk update` and ensure the router repositories match the firmware branch.
 - Local changes not included: the Docker workflow copies `openwrt-squid-profile-ui/` into the SDK container; rerun the container build after edits.
-- Stale package metadata: rerun `./scripts/feeds update -a` and `./scripts/feeds install luci-app-squid-profiles`.
+- Stale package metadata: rerun `./scripts/feeds update packages luci` and `./scripts/feeds install luci-app-squid-profiles`.
 - Wrong package manager: this project now targets OpenWrt 25/APK only.

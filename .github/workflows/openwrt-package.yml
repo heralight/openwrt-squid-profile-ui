@@ -26,6 +26,7 @@ jobs:
         run: |
           set -eu
           mkdir -p artifacts sdk-bin
+          chmod 0777 sdk-bin
           docker run --rm \
             -v "${GITHUB_WORKSPACE}:/work:ro" \
             -v "${GITHUB_WORKSPACE}/sdk-bin:/builder/bin" \
@@ -35,7 +36,7 @@ jobs:
               [ ! -d ./scripts ] && ./setup.sh
               mkdir -p package/feeds/custom
               cp -a /work/openwrt-squid-profile-ui "package/feeds/custom/${PACKAGE_NAME}"
-              ./scripts/feeds update -a
+              ./scripts/feeds update packages luci
               ./scripts/feeds install "${PACKAGE_NAME}"
               make defconfig
               make "package/${PACKAGE_NAME}/check" V=s

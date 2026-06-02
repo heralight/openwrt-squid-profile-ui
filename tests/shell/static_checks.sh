@@ -43,6 +43,7 @@ grep -q './runtime/config:/etc/config' "$COMPOSE" || fail "compose does not moun
 
 grep -q 'openwrt/sdk:mediatek-mt7622-main' "$WORKFLOW" || fail "workflow does not default to OpenWrt SDK Docker image"
 grep -q 'docker run --rm' "$WORKFLOW" || fail "workflow does not use OpenWrt SDK Docker container"
+grep -q 'chmod 0777 sdk-bin' "$WORKFLOW" || fail "workflow does not make /builder/bin bind mount writable"
 grep -q './setup.sh' "$WORKFLOW" || fail "workflow does not initialize SDK container"
 grep -q 'make "package/${PACKAGE_NAME}/compile" V=s' "$WORKFLOW" || fail "workflow does not compile package"
 grep -q 'make package/index V=s' "$WORKFLOW" || fail "workflow does not generate package index"
