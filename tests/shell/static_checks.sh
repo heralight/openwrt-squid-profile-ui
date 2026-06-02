@@ -41,14 +41,13 @@ grep -q 'squid-profiles:/etc/init.d/squid-profiles' "$COMPOSE" || fail "compose 
 grep -q './runtime/etc-squid:/etc/squid' "$COMPOSE" || fail "compose does not mount Squid runtime tree"
 grep -q './runtime/config:/etc/config' "$COMPOSE" || fail "compose does not mount OpenWrt config runtime tree"
 
-grep -q 'openwrt/sdk:mediatek-mt7622-main' "$WORKFLOW" || fail "workflow does not default to OpenWrt SDK Docker image"
-grep -q 'docker run --rm' "$WORKFLOW" || fail "workflow does not use OpenWrt SDK Docker container"
-grep -q 'chmod 0777 sdk-bin' "$WORKFLOW" || fail "workflow does not make /builder/bin bind mount writable"
-grep -q 'cp -a /work/openwrt-squid-profile-ui' "$WORKFLOW" || fail "workflow does not copy the single package source into SDK"
-grep -q './setup.sh' "$WORKFLOW" || fail "workflow does not initialize SDK container"
-grep -q 'make "package/${PACKAGE_NAME}/compile" V=s' "$WORKFLOW" || fail "workflow does not compile package"
-grep -q 'make package/index V=s' "$WORKFLOW" || fail "workflow does not generate package index"
+grep -q 'openwrt/gh-action-sdk@main' "$WORKFLOW" || fail "workflow does not use openwrt/gh-action-sdk"
+grep -q 'ARCH: aarch64_cortex-a53' "$WORKFLOW" || fail "workflow does not target the WAX206 SDK class"
+grep -q 'INDEX: 1' "$WORKFLOW" || fail "workflow does not generate package index"
+grep -q 'PACKAGES: ${{ env.PACKAGE_NAME }}' "$WORKFLOW" || fail "workflow does not target the package by name"
+grep -q 'softprops/action-gh-release@v2' "$WORKFLOW" || fail "workflow does not publish GitHub release assets"
 grep -q '*.apk' "$WORKFLOW" || fail "workflow does not collect APK artifacts"
 if grep -F -q '*.ipk' "$WORKFLOW"; then fail "workflow should not collect legacy package artifacts"; fi
+grep -q 'wget -qO- https://api.github.com/repos/heralight/openwrt-squid-profile-ui/releases/latest' "$ROOT/README.md" || fail "README does not document release-based wget retrieval"
 
 printf 'shell static checks passed\n'

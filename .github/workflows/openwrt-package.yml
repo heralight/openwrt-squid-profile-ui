@@ -4,56 +4,56 @@ on:
   push:
     branches:
       - main
+    tags:
+      - 'v*'
   pull_request:
   workflow_dispatch:
-    inputs:
-      sdk_image:
-        description: OpenWrt SDK container image
-        required: true
-        default: openwrt/sdk:mediatek-mt7622-main
+
+permissions:
+  contents: write
 
 jobs:
   build:
     runs-on: ubuntu-24.04
     env:
-      SDK_IMAGE: ${{ inputs.sdk_image || 'openwrt/sdk:mediatek-mt7622-main' }}
+      ARCH: aarch64_cortex-a53
       PACKAGE_NAME: luci-app-squid-profiles
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
-      - name: Build package with OpenWrt SDK container
-        run: |
-          set -eu
-          mkdir -p artifacts sdk-bin
-          chmod 0777 sdk-bin
-          docker run --rm \
-            -v "${GITHUB_WORKSPACE}:/work:ro" \
-            -v "${GITHUB_WORKSPACE}/sdk-bin:/builder/bin" \
-            -e PACKAGE_NAME="${PACKAGE_NAME}" \
-            "${SDK_IMAGE}" \
-            sh -euxc '
-              [ ! -d ./scripts ] && ./setup.sh
-              mkdir -p package/feeds/custom
-              cp -a /work/openwrt-squid-profile-ui "package/feeds/custom/${PACKAGE_NAME}"
-              ./scripts/feeds update packages luci
-              ./scripts/feeds install "${PACKAGE_NAME}"
-              make defconfig
-              make "package/${PACKAGE_NAME}/check" V=s
-              make "package/${PACKAGE_NAME}/clean" V=s
-              make "package/${PACKAGE_NAME}/compile" V=s -j"$(nproc)"
-              make package/index V=s
-            '
+      - name: Build package with OpenWrt SDK action
+        uses: openwrt/gh-action-sdk@main
+        env:
+          ARCH: ${{ env.ARCH }}
+          FEED_DIR: ${{ github.workspace }}
+          FEEDNAME: custom
+          INDEX: 1
+          PACKAGES: ${{ env.PACKAGE_NAME }}
 
       - name: Collect APK artifacts
         run: |
           set -eu
           mkdir -p artifacts/packages artifacts/repository
-          find sdk-bin/packages -type f -name '*.apk' -print -exec cp -v {} artifacts/packages/ \;
-          find sdk-bin/packages -type f \( -name 'packages.adb' -o -name 'packages.adb.sig' -o -name 'APKINDEX.tar.gz' -o -name 'APKINDEX.tar.gz.sig' \) -print -exec cp -v {} artifacts/repository/ \; || true
+          find bin/packages -type f -name '*.apk' -print -exec cp -v {} artifacts/packages/ \;
+          find bin/packages -type f \( -name 'packages.adb' -o -name 'packages.adb.sig' -o -name 'APKINDEX.tar.gz' -o -name 'APKINDEX.tar.gz.sig' \) -print -exec cp -v {} artifacts/repository/ \; || true
 
       - name: Upload APK artifacts
         uses: actions/upload-artifact@v4
         with:
           name: openwrt-25-apk-packages
           path: artifacts
+
+      - name: Publish GitHub release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          files: |
+            bin/packages/**/*.apk
+            bin/packages/**/packages.adb
+            bin/packages/**/packages.adb.sig
+            bin/packages/**/APKINDEX.tar.gz
+            bin/packages/**/APKINDEX.tar.gz.sig

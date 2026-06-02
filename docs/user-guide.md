@@ -15,7 +15,26 @@ apk update
 apk add --allow-untrusted ./luci-app-squid-profiles_*.apk
 ```
 
-The package depends on LuCI, rpcd, UCI and Squid. Build it with an OpenWrt 25 SDK Docker image:
+The package depends on LuCI, rpcd, UCI and Squid.
+
+### Simple local deployment from GitHub Actions
+
+If you build the package through GitHub Actions, download the workflow artifact that contains `luci-app-squid-profiles_*.apk`, then copy it to the router:
+
+```sh
+scp luci-app-squid-profiles_*.apk root@192.168.1.1:/tmp/
+ssh root@192.168.1.1
+apk add --allow-untrusted /tmp/luci-app-squid-profiles_*.apk
+```
+
+Then validate the generated Squid config:
+
+```sh
+/usr/libexec/squid-profiles validate
+squid -k parse
+```
+
+Build it with an OpenWrt 25 SDK Docker image:
 
 ```sh
 [ ! -d ./scripts ] && ./setup.sh
@@ -176,6 +195,13 @@ Then validate and apply:
 ```sh
 /usr/libexec/squid-profiles validate
 /usr/libexec/squid-profiles apply
+```
+
+If you need only a manual check after copying the generated APK, the minimum sequence is:
+
+```sh
+/usr/libexec/squid-profiles validate
+squid -k parse
 ```
 
 ### Edit the config file directly
