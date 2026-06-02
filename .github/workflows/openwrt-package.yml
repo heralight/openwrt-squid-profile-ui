@@ -35,11 +35,18 @@ jobs:
             openwrt-sdk-${{ env.ARCH }}-${{ github.ref_name }}-
             openwrt-sdk-${{ env.ARCH }}-
 
+      - name: Stage package feed
+        run: |
+          set -eu
+          rm -rf sdk-feed
+          mkdir -p sdk-feed/luci-app-squid-profiles
+          cp -a openwrt-squid-profile-ui/. sdk-feed/luci-app-squid-profiles/
+
       - name: Build package with OpenWrt SDK action
         uses: openwrt/gh-action-sdk@main
         env:
           ARCH: ${{ env.ARCH }}
-          FEED_DIR: ${{ github.workspace }}
+          FEED_DIR: ${{ github.workspace }}/sdk-feed
           FEEDNAME: custom
           INDEX: 1
           PACKAGES: ${{ env.PACKAGE_NAME }}

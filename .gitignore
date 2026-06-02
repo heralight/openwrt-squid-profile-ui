@@ -142,10 +142,10 @@ vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
 .vite/
 
-test/overlay
-test/squid_domains
-test/squid_maps
-test/runtime
+test-platform/overlay
+test-platform/squid_domains
+test-platform/squid_maps
+test-platform/runtime
 
 # OpenWrt SDK and package build outputs
 sdk/

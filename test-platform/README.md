@@ -5,7 +5,7 @@ This directory runs an OpenWrt rootfs container with the LuCI application mounte
 ## Start
 
 ```sh
-podman compose -f test/compose.yml up --build
+podman compose -f test-platform/compose.yml up --build
 ```
 
 Open LuCI at <http://localhost:8080/>.

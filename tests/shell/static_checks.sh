@@ -7,7 +7,7 @@ HELPER="$ROOT/openwrt-squid-profile-ui/files/usr/libexec/squid-profiles"
 UCI_DEFAULTS="$ROOT/openwrt-squid-profile-ui/files/etc/uci-defaults/90_squid_profiles"
 INITD="$ROOT/openwrt-squid-profile-ui/files/etc/init.d/squid-profiles"
 WORKFLOW="$ROOT/.github/workflows/openwrt-package.yml"
-COMPOSE="$ROOT/test/compose.yml"
+COMPOSE="$ROOT/test-platform/compose.yml"
 
 fail() { printf 'FAIL: %s\n' "$*" >&2; exit 1; }
 

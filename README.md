@@ -137,7 +137,7 @@ This creates the Squid skeleton and backups any unmanaged `/etc/squid/squid.conf
 │           ├── main.js
 │           ├── networks.js
 │           └── profiles.js
-├── test/
+├── test-platform/
 │   ├── Dockerfile
 │   ├── compose.yml
 │   ├── entrypoint.sh
@@ -295,10 +295,10 @@ If validation fails, Squid is not reconfigured and the full command output is re
 
 ## Podman Test Environment
 
-The test environment is under `test/` and uses the official OpenWrt rootfs image. The container runs the image default init process, while compose mounts plugin files individually so the base LuCI installation remains intact:
+The test environment is under `test-platform/` and uses the official OpenWrt rootfs image. The container runs the image default init process, while compose mounts plugin files individually so the base LuCI installation remains intact:
 
 ```sh
-podman compose -f test/compose.yml up --build
+podman compose -f test-platform/compose.yml up --build
 podman exec -it openwrt-squid-profile-ui ash
 ```
 
