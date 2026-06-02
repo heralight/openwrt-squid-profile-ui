@@ -1,13 +1,10 @@
 # OpenWrt Squid Profile UI
 
 [![Docs](https://img.shields.io/badge/docs-user%20guide-blue)](./docs/user-guide.md)
-[![OpenWrt 25 APK package](https://github.com/heralight/openwrt-squid-profile-ui/actions/workflows/openwrt-package.yml/badge.svg)](https://github.com/heralight/openwrt-squid-profile-ui/actions/workflows/openwrt-package.yml)
 
 [![CI](https://github.com/heralight/openwrt-squid-profile-ui/actions/workflows/openwrt-package.yml/badge.svg)](https://github.com/heralight/openwrt-squid-profile-ui/actions/workflows/openwrt-package.yml)
 
 [![Latest Release](https://img.shields.io/github/v/release/heralight/openwrt-squid-profile-ui)](https://github.com/heralight/openwrt-squid-profile-ui/releases)
-
-[![Downloads](https://img.shields.io/github/downloads/heralight/openwrt-squid-profile-ui/total)](https://github.com/heralight/openwrt-squid-profile-ui/releases)
 
 [![Stars](https://img.shields.io/github/stars/heralight/openwrt-squid-profile-ui?style=social)](https://github.com/heralight/openwrt-squid-profile-ui/stargazers)
 
