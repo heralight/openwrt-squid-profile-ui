@@ -336,13 +336,13 @@ These checks are intentionally lightweight and do not replace OpenWrt SDK builds
 
 ## Package Publication Notes
 
-This repository targets OpenWrt 25/APK. The GitHub Actions workflow uses the official prebuilt OpenWrt SDK Docker image, defaulting to:
+This repository targets OpenWrt 25/APK. The GitHub Actions workflow uses the official prebuilt OpenWrt SDK Docker image:
 
 ```text
 openwrt/sdk:mediatek-mt7622-main
 ```
 
-It runs the SDK container, compiles `luci-app-squid-profiles`, runs `make package/index V=s`, and uploads APK package/repository artifacts.
+It runs the SDK container directly, compiles `luci-app-squid-profiles`, runs `make package/index V=s`, and uploads APK package/repository artifacts.
 
 For direct access to generated builds and release assets, use:
 

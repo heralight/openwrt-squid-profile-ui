@@ -41,12 +41,12 @@ grep -q 'squid-profiles:/etc/init.d/squid-profiles' "$COMPOSE" || fail "compose 
 grep -q './runtime/etc-squid:/etc/squid' "$COMPOSE" || fail "compose does not mount Squid runtime tree"
 grep -q './runtime/config:/etc/config' "$COMPOSE" || fail "compose does not mount OpenWrt config runtime tree"
 
-grep -q 'openwrt/gh-action-sdk@main' "$WORKFLOW" || fail "workflow does not use openwrt/gh-action-sdk"
-grep -q 'ARCH: aarch64_cortex-a53' "$WORKFLOW" || fail "workflow does not target the WAX206 SDK class"
-grep -q 'INDEX: 1' "$WORKFLOW" || fail "workflow does not generate package index"
-grep -q 'PACKAGES: ${{ env.PACKAGE_NAME }}' "$WORKFLOW" || fail "workflow does not target the package by name"
+grep -q 'openwrt/sdk:mediatek-mt7622-main' "$WORKFLOW" || fail "workflow does not use the direct OpenWrt SDK image"
+grep -q 'docker run --rm' "$WORKFLOW" || fail "workflow does not use the direct SDK container"
+grep -q 'cp -a /work/openwrt-squid-profile-ui' "$WORKFLOW" || fail "workflow does not stage the package source into the SDK"
+grep -q 'make "package/${PACKAGE_NAME}/compile" V=s' "$WORKFLOW" || fail "workflow does not compile the package directly"
 grep -q 'softprops/action-gh-release@v2' "$WORKFLOW" || fail "workflow does not publish GitHub release assets"
-grep -q '*.apk' "$WORKFLOW" || fail "workflow does not collect APK artifacts"
+grep -F -q 'sdk-bin/packages/**/*.apk' "$WORKFLOW" || fail "workflow does not publish APK release assets"
 if grep -F -q '*.ipk' "$WORKFLOW"; then fail "workflow should not collect legacy package artifacts"; fi
 grep -q 'https://api.github.com/repos/${GITHUB_REPOSITORY}/releases/latest' "$ROOT/README.md" || fail "README does not document release-based wget retrieval"
 

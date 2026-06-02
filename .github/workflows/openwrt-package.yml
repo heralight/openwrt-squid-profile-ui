@@ -16,7 +16,7 @@ jobs:
   build:
     runs-on: ubuntu-24.04
     env:
-      ARCH: aarch64_cortex-a53
+      SDK_IMAGE: openwrt/sdk:mediatek-mt7622-main
       PACKAGE_NAME: luci-app-squid-profiles
     steps:
       - name: Checkout
@@ -24,44 +24,35 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Cache SDK build metadata
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cache/openwrt
-            ~/.ccache
-          key: openwrt-sdk-${{ env.ARCH }}-${{ github.ref_name }}-${{ hashFiles('openwrt-squid-profile-ui/Makefile', 'openwrt-squid-profile-ui/files/**', '.github/workflows/openwrt-package.yml') }}
-          restore-keys: |
-            openwrt-sdk-${{ env.ARCH }}-${{ github.ref_name }}-
-            openwrt-sdk-${{ env.ARCH }}-
-
-      - name: Stage package feed
+      - name: Build package with OpenWrt SDK container
         run: |
           set -eu
-          rm -rf sdk-feed
-          mkdir -p sdk-feed/luci-app-squid-profiles
-          cp -a openwrt-squid-profile-ui/. sdk-feed/luci-app-squid-profiles/
-          git init sdk-feed
-          git -C sdk-feed config user.name "github-actions"
-          git -C sdk-feed config user.email "github-actions@github.com"
-          git -C sdk-feed add .
-          git -C sdk-feed commit -m "stage feed snapshot" --no-gpg-sign
-
-      - name: Build package with OpenWrt SDK action
-        uses: openwrt/gh-action-sdk@main
-        env:
-          ARCH: ${{ env.ARCH }}
-          FEED_DIR: ${{ github.workspace }}/sdk-feed
-          FEEDNAME: custom
-          INDEX: 1
-          PACKAGES: ${{ env.PACKAGE_NAME }}
+          mkdir -p artifacts sdk-bin
+          chmod 0777 sdk-bin
+          docker run --rm \
+            -v "${GITHUB_WORKSPACE}:/work:ro" \
+            -v "${GITHUB_WORKSPACE}/sdk-bin:/builder/bin" \
+            -e PACKAGE_NAME="${PACKAGE_NAME}" \
+            "${SDK_IMAGE}" \
+            sh -euxc '
+              [ ! -d ./scripts ] && ./setup.sh
+              mkdir -p package/feeds/custom
+              cp -a /work/openwrt-squid-profile-ui "package/feeds/custom/${PACKAGE_NAME}"
+              ./scripts/feeds update packages luci
+              ./scripts/feeds install "${PACKAGE_NAME}"
+              make defconfig
+              make "package/${PACKAGE_NAME}/check" V=s
+              make "package/${PACKAGE_NAME}/clean" V=s
+              make "package/${PACKAGE_NAME}/compile" V=s -j"$(nproc)"
+              make package/index V=s
+            '
 
       - name: Collect APK artifacts
         run: |
           set -eu
           mkdir -p artifacts/packages artifacts/repository
-          find bin/packages -type f -name '*.apk' -print -exec cp -v {} artifacts/packages/ \;
-          find bin/packages -type f \( -name 'packages.adb' -o -name 'packages.adb.sig' -o -name 'APKINDEX.tar.gz' -o -name 'APKINDEX.tar.gz.sig' \) -print -exec cp -v {} artifacts/repository/ \; || true
+          find sdk-bin/packages -type f -name '*.apk' -print -exec cp -v {} artifacts/packages/ \;
+          find sdk-bin/packages -type f \( -name 'packages.adb' -o -name 'packages.adb.sig' -o -name 'APKINDEX.tar.gz' -o -name 'APKINDEX.tar.gz.sig' \) -print -exec cp -v {} artifacts/repository/ \; || true
 
       - name: Upload APK artifacts
         uses: actions/upload-artifact@v4
@@ -75,8 +66,8 @@ jobs:
         with:
           generate_release_notes: true
           files: |
-            bin/packages/**/*.apk
-            bin/packages/**/packages.adb
-            bin/packages/**/packages.adb.sig
-            bin/packages/**/APKINDEX.tar.gz
-            bin/packages/**/APKINDEX.tar.gz.sig
+            sdk-bin/packages/**/*.apk
+            sdk-bin/packages/**/packages.adb
+            sdk-bin/packages/**/packages.adb.sig
+            sdk-bin/packages/**/APKINDEX.tar.gz
+            sdk-bin/packages/**/APKINDEX.tar.gz.sig
