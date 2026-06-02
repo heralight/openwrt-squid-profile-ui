@@ -1,10 +1,7 @@
 # OpenWrt Squid Profile UI
 
-[![Release](https://img.shields.io/github/v/release/heralight/openwrt-squid-profile-ui?label=release)](releases)
-[![Release downloads](https://img.shields.io/github/downloads/heralight/openwrt-squid-profile-ui/latest/total?label=release%20downloads)](releases/latest)
-[![Docs](https://img.shields.io/badge/docs-user%20guide-blue)](docs/user-guide.md)
-[![GitHub stars](https://img.shields.io/github/stars/heralight/openwrt-squid-profile-ui?style=social)](stargazers)
-[![CI](https://github.com/heralight/openwrt-squid-profile-ui/actions/workflows/openwrt-package.yml/badge.svg)](actions/workflows/openwrt-package.yml)
+[![Docs](https://img.shields.io/badge/docs-user%20guide-blue)](./docs/user-guide.md)
+[![OpenWrt 25 APK package](https://github.com/heralight/openwrt-squid-profile-ui/actions/workflows/openwrt-package.yml/badge.svg)](https://github.com/heralight/openwrt-squid-profile-ui/actions/workflows/openwrt-package.yml)
 
 LuCI/OpenWrt package for managing Squid proxy profiles by IP address, VLAN/LAN and covered IPv4 network without manually editing `/etc/squid/squid.conf`.
 
@@ -332,47 +329,4 @@ sh tests/shell/static_checks.sh
 node tests/js/static_checks.js
 ```
 
-These checks are intentionally lightweight and do not replace OpenWrt SDK builds or runtime testing in the rootfs container.
-
-## Package Publication Notes
-
-This repository targets OpenWrt 25/APK. The GitHub Actions workflow uses the official prebuilt OpenWrt SDK Docker image:
-
-```text
-openwrt/sdk:mediatek-mt7622-main
-```
-
-It runs the SDK container directly, compiles `luci-app-squid-profiles`, runs `make package/index V=s`, and uploads APK package/repository artifacts.
-
-For direct access to generated builds and release assets, use:
-
-- Latest release: [releases/latest](releases/latest)
-- All releases: [releases](releases)
-- Documentation: [docs/user-guide.md](docs/user-guide.md)
-- Package notes: [docs/packaging.md](docs/packaging.md)
-- Repository stars: [stargazers](stargazers)
-
-Official references:
-
-- OpenWrt Docker images: <https://github.com/openwrt/docker>
-- APK package manager: <https://openwrt.org/docs/guide-user/additional-software/apk>
-- Release and repository signatures: <https://openwrt.org/docs/guide-user/security/release_signatures>
-- OpenWrt public keys: <https://openwrt.org/docs/guide-user/security/signatures>
-
-The WAX206 uses the `mediatek/mt7622` target and the `aarch64_cortex-a53` package architecture on OpenWrt, so `openwrt/sdk:mediatek-mt7622-main` is the matching SDK class for this router family. The package itself is script-and-LuCI-only, so the output is architecture-independent at the package level, but the build and repository metadata must still match the router's OpenWrt target line.
-
-## Known Limitations
-
-- Machine discovery depends on host hints available on the OpenWrt target.
-- The generated Squid policy is intentionally simple and may need extension for advanced proxy rules.
-- The local checks validate structure and syntax patterns, not full LuCI runtime behavior.
-- The Podman image tag follows the `openwrt/rootfs` tags available on the host at build time.
-
-## Contribution Rules
-
-- Keep the plugin small and readable.
-- Do not add heavy dependencies or frontend frameworks.
-- Do not bypass `squid -k parse` before reload.
-- Do not overwrite `/etc/squid/squid.conf` without a backup.
-- Surface validation errors clearly to the user.
-- Keep comments in code in English.
+These checks are intentionally lightweight and do not require a full OpenWrt SDK.
