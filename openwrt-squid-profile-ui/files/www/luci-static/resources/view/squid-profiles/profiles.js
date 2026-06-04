@@ -232,7 +232,7 @@ return view.extend({
     },
 
     render: function() {
-        var m = new form.Map('squid_profiles', _('Squid Profiles - Profiles'), _('Create and edit Squid profiles with dynamic lists or full text domain input.'));
+        var m = new form.Map('squid_profiles', _('Squid Profiles - Profiles'), _('Create and edit Squid profiles. Use the standard OpenWrt Save & Apply button to regenerate and reload Squid.'));
 
         var s = m.section(form.TypedSection, 'profile', _('Profiles'));
         s.anonymous = false;
@@ -314,7 +314,7 @@ return view.extend({
 
         var validateProfile = s.option(form.Button, '_validate_profile', _('Validate this profile'));
         validateProfile.inputstyle = 'apply';
-        validateProfile.description = _('Run squid -k parse against the current profile mode.');
+        validateProfile.description = _('Run squid -k parse against the current profile mode. Save & Apply still performs the final Squid reload.');
         validateProfile.onclick = function(sectionId) {
             var error = validateDomainSet(sectionId);
             if (error) {
@@ -323,20 +323,6 @@ return view.extend({
             }
             return m.save().then(function() { return callAction('parse'); }).then(function(data) {
                 notifyResult(data.success ? _('Profile validation succeeded') : _('Profile validation failed'), data, data.success ? 'info' : 'error');
-            });
-        };
-
-        var applyProfile = s.option(form.Button, '_apply_profile', _('Apply this profile'));
-        applyProfile.inputstyle = 'save';
-        applyProfile.description = _('Validate first, then apply the active profile mode.');
-        applyProfile.onclick = function(sectionId) {
-            var error = validateDomainSet(sectionId);
-            if (error) {
-                ui.addNotification(null, E('p', {}, [ error ]), 'error');
-                return Promise.resolve();
-            }
-            return m.save().then(function() { return uci.commit('squid_profiles'); }).then(function() { return callAction('apply'); }).then(function(data) {
-                notifyResult(data.success ? _('Profile applied') : _('Profile apply failed'), data, data.success ? 'info' : 'error');
             });
         };
 
