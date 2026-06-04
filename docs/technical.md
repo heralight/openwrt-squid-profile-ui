@@ -27,6 +27,8 @@ Typical field:
 
 - `enabled`: `1` or `0`
 
+This is the real service toggle. The helper exposes `enable` and `disable` subcommands to update this field from SSH, and the init script reads this value to decide whether it may apply or reload Squid.
+
 ### `network`
 
 Covered IPv4 networks.
@@ -200,6 +202,14 @@ uci commit squid_profiles
 ```
 
 This creates the directory tree, writes a Squid skeleton and backs up an unmanaged `/etc/squid/squid.conf` if one already exists.
+
+### Prune unmapped sections
+
+```sh
+/usr/libexec/squid-profiles prune
+```
+
+This removes `vm` sections that no longer have a profile assignment and removes `network` sections with `source=system` when they have no profile assignment. Custom `network` sections without profiles remain in UCI, but the helper ignores them until they receive at least one profile.
 
 ## Notes for Maintainers
 

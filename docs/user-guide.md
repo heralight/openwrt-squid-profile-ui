@@ -59,6 +59,26 @@ On first run, the plugin ensures this layout exists:
 
 If an existing `squid.conf` is present and not managed by the plugin, it is backed up with a dated filename before any new skeleton is created.
 
+## Enable Or Disable The Service
+
+The helper exposes explicit `enable` and `disable` subcommands. Both toggle `squid_profiles.core.enabled`, which is the real service switch used by the init script.
+
+To enable the plugin-managed Squid generation:
+
+```sh
+/usr/libexec/squid-profiles enable
+/etc/init.d/squid-profiles restart
+```
+
+To disable it:
+
+```sh
+/usr/libexec/squid-profiles disable
+/etc/init.d/squid-profiles stop
+```
+
+When disabled, the init script leaves `/etc/squid/squid.conf` untouched and refuses reload-triggered apply operations.
+
 ## What It Does
 
 - Lists detected machines from OpenWrt DHCP leases and saved UCI assignments.
@@ -211,6 +231,7 @@ Then validate and apply:
 
 ```sh
 /usr/libexec/squid-profiles validate
+/usr/libexec/squid-profiles prune
 /usr/libexec/squid-profiles apply
 ```
 

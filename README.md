@@ -54,7 +54,7 @@ The runtime Squid files are generated from the explicit UCI mappings and written
 
 UCI sections are:
 
-- `core` (`globals` section type): plugin-wide switch state.
+- `core` (`globals` section type): plugin-wide switch state. `squid_profiles.core.enabled` is the real service toggle and the helper exposes `enable` and `disable` subcommands to update it from SSH.
 - `network` (`network` section type): covered CIDR, VLAN/LAN label, optional description and explicit profile assignments for whole networks. Custom CIDR rows can stay persisted even without a profile, but they are ignored by the Squid generator until at least one profile is assigned.
 - `profile` (`profile` section type): profile name, description, allow/deny domains, edit mode.
 - `vm` (`vm` section type): machine IP, hostname, VLAN/LAN label and assigned profiles. DHCP-discovered machines without a direct profile assignment stay display-only.
@@ -334,6 +334,7 @@ Inside OpenWrt or the Podman container:
 ```sh
 /usr/libexec/squid-profiles init
 /usr/libexec/squid-profiles validate
+/usr/libexec/squid-profiles prune
 /usr/libexec/squid-profiles apply
 squid -k parse
 squid -k reconfigure

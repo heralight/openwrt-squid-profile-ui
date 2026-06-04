@@ -262,6 +262,52 @@ validate_uci() {
 	done
 }
 
+ensure_core_section() {
+	need_cmd uci
+	if ! uci -q get "$CONFIG.core" >/dev/null 2>&1; then
+		uci batch <<EOF
+set $CONFIG.core=globals
+set $CONFIG.core.enabled='1'
+commit $CONFIG
+EOF
+	fi
+}
+
+set_enabled_state() {
+	state="$1"
+	case "$state" in
+		0|1) ;;
+		*) fail "invalid enabled state: $state" ;;
+	esac
+	ensure_core_section
+	uci set "$CONFIG.core.enabled=$state"
+	uci commit "$CONFIG"
+	log "Set $CONFIG.core.enabled to $state"
+}
+
+prune_config() {
+	need_cmd uci
+
+	for section in $(uci show "$CONFIG" 2>/dev/null | sed -n "s/^$CONFIG\.\([^.=]*\)=vm$/\1/p"); do
+		profiles="$(uci -q get "$CONFIG.$section.profile" || true)"
+		if [ -z "$profiles" ]; then
+			uci delete "$CONFIG.$section"
+			log "Pruned unmapped device section: $section"
+		fi
+	done
+
+	for section in $(uci show "$CONFIG" 2>/dev/null | sed -n "s/^$CONFIG\.\([^.=]*\)=network$/\1/p"); do
+		source="$(uci -q get "$CONFIG.$section.source" || printf 'custom')"
+		profiles="$(uci -q get "$CONFIG.$section.profile" || true)"
+		if [ "$source" = "system" ] && [ -z "$profiles" ]; then
+			uci delete "$CONFIG.$section"
+			log "Pruned unmapped system network section: $section"
+		fi
+	done
+
+	uci commit "$CONFIG"
+}
+
 write_domain_file() {
 	file="$1"; shift; : > "$file"
 	for domain in "$@"; do [ -n "$domain" ] && printf '%s\n' "$domain" >> "$file"; done
@@ -375,5 +421,8 @@ case "${1:-}" in
 	generate) init_tree; validate_uci; emit_profile_files; write_skeleton "$SQUID_CONF" ;;
 	validate) init_tree; validate_uci; emit_profile_files; write_skeleton "$TMP_CONF"; validate_squid "$TMP_CONF" ;;
 	apply) apply_config ;;
-	*) printf 'Usage: %s init|generate|validate|apply\n' "$0"; exit 2 ;;
+	enable) set_enabled_state 1 ;;
+	disable) set_enabled_state 0 ;;
+	prune) prune_config ;;
+	*) printf 'Usage: %s init|generate|validate|apply|enable|disable|prune\n' "$0"; exit 2 ;;
 esac
