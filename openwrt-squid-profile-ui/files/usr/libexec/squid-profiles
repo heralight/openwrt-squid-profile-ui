@@ -273,6 +273,8 @@ write_map_file() {
 	: > "$target"
 	for net in $(uci show "$CONFIG" 2>/dev/null | sed -n "s/^$CONFIG\.\([^.=]*\)=network$/\1/p"); do
 		cidr="$(uci -q get "$CONFIG.$net.cidr" || uci -q get "$CONFIG.$net.subnet" || true)"
+		profiles="$(uci -q get "$CONFIG.$net.profile" || true)"
+		[ -n "$profiles" ] || continue
 		[ -n "$cidr" ] && printf 'acl squid_profiles_net_%s src %s\n' "$(normalize_name "$net")" "$(normalize_ipv4_cidr "$cidr")" >> "$target"
 	done
 	for section in $(uci show "$CONFIG" 2>/dev/null | sed -n "s/^$CONFIG\.\([^.=]*\)=profile$/\1/p"); do
