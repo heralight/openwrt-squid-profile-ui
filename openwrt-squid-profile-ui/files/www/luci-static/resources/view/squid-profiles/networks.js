@@ -97,7 +97,11 @@ return view.extend({
     },
 
     render: function() {
-        var m = new form.Map('squid_profiles', _('Squid Profiles - LAN/VLAN Mapping'), _('Map OpenWrt LAN/VLAN networks and optional custom CIDRs to one or more Squid profiles.'));
+        var m = new form.Map(
+            'squid_profiles',
+            _('Squid Profiles - LAN/VLAN Mapping'),
+            _('Map LAN/VLAN networks to profiles, then use the standard OpenWrt Save & Apply button to apply Squid changes.')
+        );
         var profiles = [];
         var profileNamesById = {};
         var networksByKey = {};
@@ -204,14 +208,14 @@ return view.extend({
                 notifyResult(data.success ? _('Validation succeeded') : _('Validation failed'), data, data.success ? 'info' : 'error');
             });
         };
-        var apply = actions.option(form.Button, '_apply', _('Apply'));
-        apply.inputstyle = 'save';
-        apply.description = _('Save UCI changes, validate Squid, then reconfigure Squid.');
-        apply.onclick = function() {
-            return m.save().then(function() { return uci.commit('squid_profiles'); }).then(function() { return callAction('apply'); }).then(function(data) {
-                notifyResult(data.success ? _('Configuration applied') : _('Apply failed'), data, data.success ? 'info' : 'error');
-            });
-        };
+        // var apply = actions.option(form.Button, '_apply', _('Apply'));
+        // apply.inputstyle = 'save';
+        // apply.description = _('Save UCI changes, validate Squid, then reconfigure Squid.');
+        // apply.onclick = function() {
+        //     return m.save().then(function() { return uci.commit('squid_profiles'); }).then(function() { return callAction('apply'); }).then(function(data) {
+        //         notifyResult(data.success ? _('Configuration applied') : _('Apply failed'), data, data.success ? 'info' : 'error');
+        //     });
+        // };
         var help = actions.option(form.Button, '_help', _('Quick tip'));
         help.inputstyle = 'reset';
         help.description = _('OpenWrt networks appear automatically. Add custom CIDRs only when Squid must cover an extra subnet.');

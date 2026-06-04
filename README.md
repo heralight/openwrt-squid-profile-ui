@@ -274,6 +274,15 @@ That applies to `/etc/squid/squid.conf`, `/etc/squid/domains/*.txt` and `/etc/sq
 
 The helper then writes a Squid skeleton compatible with generated profile ACLs. The UI and helper report the backup path, directories and generated files in their command output.
 
+## Applying configuration
+
+Use the standard OpenWrt Save & Apply button.
+
+When the configuration is committed, OpenWrt automatically triggers:
+
+/usr/libexec/squid-profiles apply
+
+through the squid-profiles init service.
 ## Validation and Apply Flow
 
 The apply path is intentionally strict:
