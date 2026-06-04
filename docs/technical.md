@@ -1,14 +1,14 @@
 # Technical Notes
 
-`luci-app-squid-profiles` uses UCI as the source of truth and generates Squid runtime files from it.
+`luci-app-squid-profiles` uses UCI as the source of truth for explicit operator policy and generates Squid runtime files from it.
 The editable config lives in `/etc/config/squid_profiles`.
 The runtime Squid tree lives in `/etc/squid`.
 
 LuCI navigation is split into three tabs under **Services -> Squid Profiles**:
 
 - `Profiles`: profile creation and domain rules
-- `Devices`: per-IP assignments from detected DHCP leases and saved `vm` sections
-- `LAN/VLAN Mapping`: OpenWrt network coverage and network-wide profile assignments
+- `Devices`: per-IP assignments from detected DHCP leases plus saved `vm` sections with direct profile assignments
+- `LAN/VLAN Mapping`: OpenWrt network coverage and network-wide profile assignments, with discovered interfaces displayed only until they receive an explicit profile assignment
 
 ## Storage Schema
 
@@ -39,7 +39,7 @@ Fields:
 - `source`: optional `system` or `custom` marker used by LuCI
 - `profile`: optional UCI list of profile names assigned to the whole network
 
-The `LAN/VLAN Mapping` view reads `/etc/config/network` and creates UCI `network` rows for detected OpenWrt interfaces when they are missing. The generated Squid ACL always uses a normalized network CIDR, for example `172.30.0.2/24` is emitted as `172.30.0.0/24`.
+The `LAN/VLAN Mapping` view reads `/etc/config/network` and shows detected OpenWrt interfaces as display-only rows. They are not written back into UCI unless the operator explicitly assigns profiles to them. Custom CIDR rows created by the operator remain in UCI even when no profile is assigned, but the helper ignores them when generating ACL files until profiles are present.
 
 ### `profile`
 
@@ -71,7 +71,7 @@ Fields:
 - `vlan`: VLAN or LAN label
 - `profile`: UCI list of assigned profile names
 
-The `Devices` view discovers DHCP leases through LuCI RPC and overlays saved `vm` sections from `/etc/config/squid_profiles`. Device edit saves local UCI changes; validation/apply performs the final coverage and Squid parse checks.
+The `Devices` view discovers DHCP leases through LuCI RPC and overlays saved `vm` sections from `/etc/config/squid_profiles`. Only leases with an explicit profile assignment are persisted as `vm` sections. A discovered lease with no direct profile assignment is displayed but not written into UCI. Device edit writes back only when the user assigns or clears one or more profiles.
 
 ## Runtime Artifacts
 
@@ -89,18 +89,19 @@ The generated Squid skeleton is intentionally small and references the generated
 
 Every apply path follows the same order:
 
-1. Save or commit UCI changes.
-2. Validate UCI structure and domain syntax in `/usr/libexec/squid-profiles validate`.
-3. Generate a temporary Squid configuration.
-4. Run:
+1. OpenWrt commits the UCI changes through the standard LuCI **Save & Apply** path.
+2. The `squid_profiles` procd reload trigger starts `/etc/init.d/squid-profiles reload`.
+3. The helper validates UCI structure and domain syntax in `/usr/libexec/squid-profiles apply` or `validate`.
+4. Generate a temporary Squid configuration.
+5. Run:
 
 ```sh
 squid -k parse
 ```
 
-5. If parsing succeeds, back up the previous `/etc/squid/squid.conf` with a dated filename.
-6. Copy the new config into place.
-7. Reconfigure Squid.
+6. If parsing succeeds, back up the previous `/etc/squid/squid.conf` with a dated filename.
+7. Copy the new config into place.
+8. Reconfigure Squid.
 
 The current implementation backs up only files whose content changes, using the format `filename.YYYYMMDD-HHMMSS.bak`.
 This applies to the generated Squid config, the per-profile domain lists and the map files. If parsing fails, the helper stops and returns the full output to LuCI.
@@ -114,7 +115,7 @@ Package metadata:
 ```make
 PKG_NAME:=luci-app-squid-profiles
 PKG_VERSION:=0.1.0
-PKG_RELEASE:=2
+PKG_RELEASE:=5
 PKG_LICENSE:=BSD-2-Clause
 PKG_LICENSE_FILES:=LICENSE
 PKGARCH:=all
