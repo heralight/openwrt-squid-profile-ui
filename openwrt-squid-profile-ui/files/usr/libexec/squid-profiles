@@ -202,6 +202,13 @@ collect_profile_domains() {
 	section="$1"
 	mode="$(uci -q get "$CONFIG.$section.edit_mode" || printf 'lists')"
 	if [ "$mode" = "text" ]; then
+		allow="$(uci -q get "$CONFIG.$section.allow_domain" || true)"
+		deny="$(uci -q get "$CONFIG.$section.deny_domain" || true)"
+		if [ -n "$allow" ] || [ -n "$deny" ]; then
+			printf '%s\n%s\n' "$allow" "$deny"
+			return 0
+		fi
+
 		allow=""
 		deny=""
 		raw="$(uci -q get "$CONFIG.$section.raw_rules" || true)"

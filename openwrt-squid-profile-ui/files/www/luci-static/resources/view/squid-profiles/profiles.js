@@ -95,7 +95,13 @@ function legacyTextRules(sectionId) {
 }
 
 function currentTextRules(sectionId) {
+    var allow = readListOption(sectionId, 'allow_domain');
+    var deny = readListOption(sectionId, 'deny_domain');
     var raw = String(uci.get('squid_profiles', sectionId, 'raw_rules') || '').trim();
+
+    if (allow.length || deny.length)
+        return joinRulesFromLists(allow, deny);
+
     if (raw)
         return raw;
 
@@ -103,7 +109,7 @@ function currentTextRules(sectionId) {
     if (raw)
         return raw;
 
-    return joinRulesFromLists(readListOption(sectionId, 'allow_domain'), readListOption(sectionId, 'deny_domain'));
+    return '';
 }
 
 function currentRuleSet(sectionId) {
@@ -170,24 +176,10 @@ function syncMode(section, sectionId, value) {
     var legacyDeny = section && section.getOption ? section.getOption('deny_text').getUIElement(sectionId) : null;
 
     if (mode === 'text') {
-        var lists = {
-            allow: allowField ? listValue(allowField.getValue()) : readListOption(sectionId, 'allow_domain'),
-            deny: denyField ? listValue(denyField.getValue()) : readListOption(sectionId, 'deny_domain')
-        };
-        var text = joinRulesFromLists(lists.allow, lists.deny);
-        if (!text)
-            text = currentTextRules(sectionId);
+        var text = currentTextRules(sectionId);
         if (rawField)
             rawField.setValue(text);
-        uci.set('squid_profiles', sectionId, 'raw_rules', text);
-        if (allowField)
-            allowField.setValue([]);
-        if (denyField)
-            denyField.setValue([]);
-        uci.unset('squid_profiles', sectionId, 'allow_domain');
-        uci.unset('squid_profiles', sectionId, 'deny_domain');
-        uci.unset('squid_profiles', sectionId, 'allow_text');
-        uci.unset('squid_profiles', sectionId, 'deny_text');
+        uci.unset('squid_profiles', sectionId, 'raw_rules');
     }
     else {
         var parsed = parseRulesText(rawField ? rawField.getValue() : currentTextRules(sectionId));
@@ -201,7 +193,6 @@ function syncMode(section, sectionId, value) {
             denyField.setValue(parsed.deny);
         uci.set('squid_profiles', sectionId, 'allow_domain', parsed.allow);
         uci.set('squid_profiles', sectionId, 'deny_domain', parsed.deny);
-        uci.unset('squid_profiles', sectionId, 'raw_rules');
         if (rawField)
             rawField.setValue('');
         if (legacyAllow)
@@ -308,6 +299,7 @@ return view.extend({
 
         var allow = s.option(form.DynamicList, 'allow_domain', _('Allowed domains'));
         allow.depends('edit_mode', 'lists');
+        allow.retain = true;
         allow.cfgvalue = function(sectionId) {
             return currentRuleSet(sectionId).allow || [];
         };
@@ -316,6 +308,7 @@ return view.extend({
 
         var deny = s.option(form.DynamicList, 'deny_domain', _('Denied domains'));
         deny.depends('edit_mode', 'lists');
+        deny.retain = true;
         deny.cfgvalue = function(sectionId) {
             return currentRuleSet(sectionId).deny || [];
         };
@@ -345,6 +338,18 @@ return view.extend({
                     return _('Invalid domain syntax: ') + m[2].trim();
             }
             return true;
+        };
+        rawRules.write = function(sectionId, value) {
+            var parsed = parseRulesText(value);
+
+            if (parsed.error)
+                throw new Error(parsed.error);
+
+            uci.set('squid_profiles', sectionId, 'allow_domain', parsed.allow);
+            uci.set('squid_profiles', sectionId, 'deny_domain', parsed.deny);
+            uci.unset('squid_profiles', sectionId, 'raw_rules');
+            uci.unset('squid_profiles', sectionId, 'allow_text');
+            uci.unset('squid_profiles', sectionId, 'deny_text');
         };
 
         // var syntaxHelp = s.option(form.Button, '_syntax_help', _('Fix Domain syntax'));
