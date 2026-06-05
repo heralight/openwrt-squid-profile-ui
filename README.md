@@ -327,6 +327,21 @@ It exposes:
 
 Mounted development paths are file-level mounts for the LuCI menu, controller, RPC ACL, helper, init script and view directory. Runtime data uses directory mounts for `/etc/squid`, `/etc/config` and `/tmp`; the test entrypoint copies the image default OpenWrt config files into the mounted `/etc/config` directory if they are missing. This keeps the base LuCI installation from the image intact while local plugin edits remain visible without rebuilding the package.
 
+If you change `files/usr/share/luci/menu.d/luci-app-squid-profiles.json`, delete the LuCI menu cache first:
+
+```sh
+podman exec -it openwrt-squid-profile-ui sh -lc 'rm -f /tmp/luci-indexcache*.json && /etc/init.d/uhttpd restart && /etc/init.d/rpcd restart'
+```
+
+
+Restarting `uhttpd` alone does not rebuild the cached LuCI menu index. LuCI recreates it on the next page load after the cache file is removed. If the browser still shows the old menu, do a hard reload or open LuCI in a private window. The helper itself is only invoked as:
+
+```sh
+/usr/libexec/squid-profiles init|generate|validate|apply|enable|disable|prune
+```
+
+Do not pass init script paths to the helper. Service control stays on `/etc/init.d/squid-profiles restart|stop`.
+
 ## Debug Commands
 
 Inside OpenWrt or the Podman container:

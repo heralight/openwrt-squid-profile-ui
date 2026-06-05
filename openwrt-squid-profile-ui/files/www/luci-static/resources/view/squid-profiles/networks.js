@@ -6,8 +6,19 @@
 'require ui';
 
 function responseJson(res) {
-    if (res && typeof res.json === 'function')
-        return res.json();
+    if (res && typeof res.json === 'function') {
+        try {
+            return res.json();
+        }
+        catch (e) {
+            return Promise.resolve({
+                success: false,
+                code: 500,
+                message: e.message || String(e),
+                output: res.responseText || ''
+            });
+        }
+    }
     return (res || {}).json || {};
 }
 
@@ -234,7 +245,7 @@ return view.extend({
 
         var s = m.section(form.GridSection, 'network', _('LAN/VLAN mappings'));
         s.anonymous = true;
-        s.addremove = true;
+        s.addremove = false;
         s.nodescriptions = true;
         s.sectiontitle = function(sectionId) {
             var network = networksBySection[sectionId];
@@ -248,6 +259,9 @@ return view.extend({
             }).filter(function(sectionId, idx, arr) {
                 return sectionId && arr.indexOf(sectionId) === idx;
             });
+        };
+        s.renderRowActions = function(sectionId) {
+            return this.super('renderRowActions', [ sectionId ]);
         };
 
         var cidr = s.option(form.Value, 'cidr', _('IPv4 CIDR'));
@@ -307,7 +321,8 @@ return view.extend({
         };
 
         var assigned = s.option(form.MultiValue, 'profile', _('Profiles'));
-        assigned.modalonly = true;
+        assigned.modalonly = false;
+        assigned.editable = true;
         assigned.multiple = true;
         assigned.size = Math.min(Math.max(profiles.length, 3), 8);
         assigned.description = _('Select profiles that apply to the whole LAN/VLAN network.');
@@ -363,16 +378,16 @@ return view.extend({
             }
         };
 
-        var actions = m.section(form.NamedSection, 'core', 'globals', _('Actions'));
-        actions.addremove = false;
-        var validate = actions.option(form.Button, '_validate', _('Validate configuration'));
-        validate.inputstyle = 'apply';
-        validate.description = _('Run squid -k parse before applying LAN/VLAN mapping changes.');
-        validate.onclick = function() {
-            return m.save().then(function() { return callAction('parse'); }).then(function(data) {
-                notifyResult(data.success ? _('Validation succeeded') : _('Validation failed'), data, data.success ? 'info' : 'error');
-            });
-        };
+        // var actions = m.section(form.NamedSection, 'core', 'globals', _('Actions'));
+        // actions.addremove = false;
+        // var validate = actions.option(form.Button, '_validate', _('Validate configuration'));
+        // validate.inputstyle = 'apply';
+        // validate.description = _('Run squid -k parse before applying LAN/VLAN mapping changes.');
+        // validate.onclick = function() {
+        //     return m.save().then(function() { return callAction('parse'); }).then(function(data) {
+        //         notifyResult(data.success ? _('Validation succeeded') : _('Validation failed'), data, data.success ? 'info' : 'error');
+        //     });
+        // };
 
         return m.render();
     }

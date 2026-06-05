@@ -7,6 +7,7 @@ local helper = "/usr/libexec/squid-profiles"
 function index()
 	entry({"admin", "services", "squid-profiles", "init"}, call("action_init"), nil, 79).leaf = true
 	entry({"admin", "services", "squid-profiles", "parse"}, call("action_parse"), nil, 80).leaf = true
+	entry({"admin", "services", "squid-profiles", "validate"}, call("action_validate"), nil, 80).leaf = true
 	entry({"admin", "services", "squid-profiles", "apply"}, call("action_apply"), nil, 81).leaf = true
 end
 
@@ -35,6 +36,10 @@ function action_init()
 end
 
 function action_parse()
+	run_helper("validate")
+end
+
+function action_validate()
 	run_helper("validate")
 end
 

@@ -16,6 +16,15 @@ function normalizeDomain(value) {
     return value;
 }
 
+function normalizeDomainWithChange(value) {
+    var input = String(value || '').trim();
+    var normalized = normalizeDomain(input);
+    return {
+        value: normalized,
+        changed: normalized !== input
+    };
+}
+
 function isDomain(value) {
     value = normalizeDomain(value);
     if (!value || value.indexOf('*') >= 0 || value.indexOf('/') >= 0 || value.indexOf(' ') >= 0 || value.indexOf('..') >= 0)
@@ -109,8 +118,19 @@ function currentRuleSet(sectionId) {
 }
 
 function responseJson(res) {
-    if (res && typeof res.json === 'function')
-        return res.json();
+    if (res && typeof res.json === 'function') {
+        try {
+            return res.json();
+        }
+        catch (e) {
+            return Promise.resolve({
+                success: false,
+                code: 500,
+                message: e.message || String(e),
+                output: res.responseText || ''
+            });
+        }
+    }
     return (res || {}).json || {};
 }
 
@@ -232,7 +252,17 @@ return view.extend({
     },
 
     render: function() {
-        var m = new form.Map('squid_profiles', _('Squid Profiles - Profiles'), _('Create and edit Squid profiles. Use the standard OpenWrt Save & Apply button to regenerate and reload Squid.'));
+        var m = new form.Map(
+            'squid_profiles',
+            _('Squid Profiles - Profiles'),
+            E('span', { style: 'white-space: pre-line' }, [
+                _('Create and edit Squid profiles.'),
+                '\n',
+                _('Use the standard OpenWrt Save & Apply button to regenerate and reload Squid.'),
+                  '\n',
+                _("TIPS: Run 'squid -k parse' if trouble."),
+            ])
+        );
 
         var s = m.section(form.TypedSection, 'profile', _('Profiles'));
         s.anonymous = false;
@@ -256,7 +286,22 @@ return view.extend({
         editMode.value('text', _('Full text'));
         editMode.default = 'lists';
         editMode.rmempty = false;
-        editMode.description = _('Pick one source of truth for this profile. Full text accepts one rule per line: allow .example.com or deny bad.example.com.');
+        editMode.description = _(
+            'Pick one source of truth for this profile.\n' +
+            'Full text accepts one rule per line: allow .example.com or deny bad.example.com.\n' +
+            'Wildcard is NOT *.domain.com but .domain.com.'
+        );
+        editMode.renderFrame = (function(orig) {
+            return function(section_id, in_table, option_index, nodes) {
+                var el = orig.call(this, section_id, in_table, option_index, nodes);
+                var descr = el && el.querySelector ? el.querySelector('.cbi-value-description') : null;
+
+                if (descr)
+                    descr.style.whiteSpace = 'pre-line';
+
+                return el;
+            };
+        })(editMode.renderFrame);
         editMode.onchange = function(ev, sectionId, value) {
             syncMode(s, sectionId, value || uci.get('squid_profiles', sectionId, 'edit_mode'));
         };
@@ -302,29 +347,104 @@ return view.extend({
             return true;
         };
 
-        var syntaxHelp = s.option(form.Button, '_syntax_help', _('Domain syntax'));
-        syntaxHelp.inputstyle = 'apply';
-        syntaxHelp.description = _('Use .example.com for wildcard matches, not *.example.com.');
-        syntaxHelp.onclick = function() {
-            ui.addNotification(null, E('p', {}, [
-                _('Squid wildcard domains use a leading dot, for example .example.com.')
-            ]), 'info');
-            return Promise.resolve();
-        };
+        // var syntaxHelp = s.option(form.Button, '_syntax_help', _('Fix Domain syntax'));
+        // syntaxHelp.inputstyle = 'apply';
+        // syntaxHelp.description = _('Squid WWwildcard domains use a leading dot, for example .example.com. Do not use *.example.com.');
+        // syntaxHelp.onclick = function(sectionId) {
+        //     var mode = normalizeMode(uci.get('squid_profiles', sectionId, 'edit_mode'));
+        //     var allowField = s.getOption ? s.getOption('allow_domain').getUIElement(sectionId) : null;
+        //     var denyField = s.getOption ? s.getOption('deny_domain').getUIElement(sectionId) : null;
+        //     var rawField = s.getOption ? s.getOption('raw_rules').getUIElement(sectionId) : null;
+        //     var allowTextField = s.getOption ? s.getOption('allow_text').getUIElement(sectionId) : null;
+        //     var denyTextField = s.getOption ? s.getOption('deny_text').getUIElement(sectionId) : null;
+        //     var changed = [];
 
-        var validateProfile = s.option(form.Button, '_validate_profile', _('Validate this profile'));
-        validateProfile.inputstyle = 'apply';
-        validateProfile.description = _('Run squid -k parse against the current profile mode. Save & Apply still performs the final Squid reload.');
-        validateProfile.onclick = function(sectionId) {
-            var error = validateDomainSet(sectionId);
-            if (error) {
-                ui.addNotification(null, E('p', {}, [ error ]), 'error');
-                return Promise.resolve();
-            }
-            return m.save().then(function() { return callAction('parse'); }).then(function(data) {
-                notifyResult(data.success ? _('Profile validation succeeded') : _('Profile validation failed'), data, data.success ? 'info' : 'error');
-            });
-        };
+        //     if (mode === 'text') {
+        //         var lines = String(rawField ? rawField.getValue() : currentTextRules(sectionId) || '').split(/\r?\n/);
+        //         var rewritten = lines.map(function(line) {
+        //             var trimmed = String(line || '').trim();
+        //             var match = trimmed.match(/^(allow|deny)\s+(.+)$/i);
+        //             var domain, normalized;
+
+        //             if (!match)
+        //                 return line;
+
+        //             domain = match[2].trim();
+        //             normalized = normalizeDomainWithChange(domain);
+        //             if (normalized.changed)
+        //                 changed.push(domain + ' -> ' + normalized.value);
+
+        //             return match[1].toLowerCase() + ' ' + normalized.value;
+        //         }).join('\n');
+
+        //         if (rawField)
+        //             rawField.setValue(rewritten);
+        //         uci.set('squid_profiles', sectionId, 'raw_rules', rewritten);
+        //         uci.unset('squid_profiles', sectionId, 'allow_domain');
+        //         uci.unset('squid_profiles', sectionId, 'deny_domain');
+        //         if (allowTextField)
+        //             allowTextField.setValue('');
+        //         if (denyTextField)
+        //             denyTextField.setValue('');
+        //         uci.unset('squid_profiles', sectionId, 'allow_text');
+        //         uci.unset('squid_profiles', sectionId, 'deny_text');
+        //     }
+        //     else {
+        //         var allow = listValue(allowField ? allowField.getValue() : readListOption(sectionId, 'allow_domain'));
+        //         var deny = listValue(denyField ? denyField.getValue() : readListOption(sectionId, 'deny_domain'));
+        //         var normalizedAllow = [];
+        //         var normalizedDeny = [];
+
+        //         allow.forEach(function(item) {
+        //             var normalized = normalizeDomainWithChange(item);
+        //             normalizedAllow.push(normalized.value);
+        //             if (normalized.changed)
+        //                 changed.push(item + ' -> ' + normalized.value);
+        //         });
+
+        //         deny.forEach(function(item) {
+        //             var normalized = normalizeDomainWithChange(item);
+        //             normalizedDeny.push(normalized.value);
+        //             if (normalized.changed)
+        //                 changed.push(item + ' -> ' + normalized.value);
+        //         });
+
+        //         if (allowField)
+        //             allowField.setValue(normalizedAllow);
+        //         if (denyField)
+        //             denyField.setValue(normalizedDeny);
+        //         uci.set('squid_profiles', sectionId, 'allow_domain', normalizedAllow);
+        //         uci.set('squid_profiles', sectionId, 'deny_domain', normalizedDeny);
+        //         uci.unset('squid_profiles', sectionId, 'raw_rules');
+        //         if (rawField)
+        //             rawField.setValue('');
+        //         uci.unset('squid_profiles', sectionId, 'allow_text');
+        //         uci.unset('squid_profiles', sectionId, 'deny_text');
+        //         if (allowTextField)
+        //             allowTextField.setValue('');
+        //         if (denyTextField)
+        //             denyTextField.setValue('');
+        //     }
+
+        //     ui.addNotification(null, E('p', {}, [
+        //         changed.length ? _('Converted wildcard domains to leading-dot syntax: %s').format(changed.join(', ')) : _('No wildcard domains needed conversion.')
+        //     ]), 'info');
+        //     return Promise.resolve();
+        // };
+
+        // var validateProfile = s.option(form.Button, '_validate_profile', _('Validate this profile'));
+        // validateProfile.inputstyle = 'apply';
+        // validateProfile.description = _('Run squid -k parse against the current profile mode. Save & Apply still performs the final Squid reload.');
+        // validateProfile.onclick = function(sectionId) {
+        //     var error = validateDomainSet(sectionId);
+        //     if (error) {
+        //         ui.addNotification(null, E('p', {}, [ error ]), 'error');
+        //         return Promise.resolve();
+        //     }
+        //     return m.save().then(function() { return callAction('parse'); }).then(function(data) {
+        //         notifyResult(data.success ? _('Profile validation succeeded') : _('Profile validation failed'), data, data.success ? 'info' : 'error');
+        //     });
+        // };
 
         return m.render();
     }

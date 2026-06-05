@@ -9,16 +9,20 @@ services:
       - "3128:3128"
       - "2222:22"
     volumes:
-      - ../openwrt-squid-profile-ui/files/usr/share/luci/menu.d/luci-app-squid-profiles.json:/usr/share/luci/menu.d/luci-app-squid-profiles.json
-      - ../openwrt-squid-profile-ui/files/usr/lib/lua/luci/controller/squid_profiles.lua:/usr/lib/lua/luci/controller/squid_profiles.lua
-      - ../openwrt-squid-profile-ui/files/www/luci-static/resources/view/squid-profiles:/www/luci-static/resources/view/squid-profiles
-      - ../openwrt-squid-profile-ui/files/usr/share/rpcd/acl.d/luci-app-squid-profiles.json:/usr/share/rpcd/acl.d/luci-app-squid-profiles.json
-      - ../openwrt-squid-profile-ui/files/usr/libexec/squid-profiles:/usr/libexec/squid-profiles
-      - ../openwrt-squid-profile-ui/files/etc/uci-defaults/90_squid_profiles:/etc/uci-defaults/90_squid_profiles
-      - ../openwrt-squid-profile-ui/files/etc/init.d/squid-profiles:/etc/init.d/squid-profiles
-      - ./runtime/etc-squid:/etc/squid
-      - ./runtime/config:/etc/config
-      - ./runtime/log:/tmp
+      - ./runtime/etc-squid:/etc/squid:Z
+      - ./runtime/config:/etc/config:Z
+      - ./runtime/log:/tmp:Z
+
+      # Fichiers de configuration de l'application (Lecture seule + flag :Z pour la synchro)
+      - ../openwrt-squid-profile-ui/files/usr/share/luci/menu.d/luci-app-squid-profiles.json:/usr/share/luci/menu.d/luci-app-squid-profiles.json:ro,Z
+      - ../openwrt-squid-profile-ui/files/usr/lib/lua/luci/controller/squid_profiles.lua:/usr/lib/lua/luci/controller/squid_profiles.lua:ro,Z
+      - ../openwrt-squid-profile-ui/files/www/luci-static/resources/view/squid-profiles:/www/luci-static/resources/view/squid-profiles:ro,Z
+      - ../openwrt-squid-profile-ui/files/usr/share/rpcd/acl.d/luci-app-squid-profiles.json:/usr/share/rpcd/acl.d/luci-app-squid-profiles.json:ro,Z
+
+      # Scripts et Executables (Lecture seule, :Z)
+      - ../openwrt-squid-profile-ui/files/usr/libexec/squid-profiles:/usr/libexec/squid-profiles:ro,Z
+      - ../openwrt-squid-profile-ui/files/etc/uci-defaults/90_squid_profiles:/etc/uci-defaults/90_squid_profiles:ro,Z
+      - ../openwrt-squid-profile-ui/files/etc/init.d/squid-profiles:/etc/init.d/squid-profiles:ro,Z
     tty: true
     stdin_open: true
 
@@ -26,7 +30,7 @@ services:
       lan:
         ipv4_address: 172.30.0.2
 
-  
+
 networks:
   lan:
     driver: bridge

@@ -92,8 +92,19 @@ function networkForIp(ip, networks) {
 }
 
 function responseJson(res) {
-    if (res && typeof res.json === 'function')
-        return res.json();
+    if (res && typeof res.json === 'function') {
+        try {
+            return res.json();
+        }
+        catch (e) {
+            return Promise.resolve({
+                success: false,
+                code: 500,
+                message: e.message || String(e),
+                output: res.responseText || ''
+            });
+        }
+    }
     return (res || {}).json || {};
 }
 
@@ -130,6 +141,10 @@ function profileSummary(values) {
 
 function virtualDeviceSection(ip) {
     return 'lease_' + String(ip || '').replace(/[^A-Za-z0-9_]/g, '_');
+}
+
+function virtualNetworkSection(cidr, vlan) {
+    return 'net_' + String((cidr || '') + '_' + (vlan || '')).replace(/[^A-Za-z0-9_]/g, '_');
 }
 
 return view.extend({
@@ -332,6 +347,9 @@ return view.extend({
                 return sectionId && arr.indexOf(sectionId) === idx;
             });
         };
+        s.renderRowActions = function(sectionId) {
+            return this.super('renderRowActions', [ sectionId ]);
+        };
 
         var ip = s.option(form.DummyValue, '_ip', _('IP address'));
         ip.cfgvalue = function(sectionId) { return (hostsBySection[sectionId] || {}).ip || ''; };
@@ -345,7 +363,8 @@ return view.extend({
         profileView.cfgvalue = function(sectionId) { return profileSummary((hostsBySection[sectionId] || {}).profiles); };
 
         var assigned = s.option(form.MultiValue, 'profile', _('Profiles'));
-        assigned.modalonly = true;
+        assigned.modalonly = false;
+        assigned.editable = true;
         assigned.multiple = true;
         assigned.size = Math.min(Math.max(profiles.length, 3), 8);
         assigned.description = _('Select zero, one or several profiles for this device.');
@@ -399,16 +418,16 @@ return view.extend({
             }
         };
 
-        var actions = m.section(form.NamedSection, 'core', 'globals', _('Actions'));
-        actions.addremove = false;
-        var validate = actions.option(form.Button, '_validate', _('Validate configuration'));
-        validate.inputstyle = 'apply';
-        validate.description = _('Run squid -k parse before saving anything.');
-        validate.onclick = function() {
-            return m.save().then(function() { return callAction('parse'); }).then(function(data) {
-                notifyResult(data.success ? _('Validation succeeded') : _('Validation failed'), data, data.success ? 'info' : 'error');
-            });
-        };
+        // var actions = m.section(form.NamedSection, 'core', 'globals', _('Actions'));
+        // actions.addremove = false;
+        // var validate = actions.option(form.Button, '_validate', _('Validate configuration'));
+        // validate.inputstyle = 'apply';
+        // validate.description = _('Run squid -k parse before saving anything.');
+        // validate.onclick = function() {
+        //     return m.save().then(function() { return callAction('parse'); }).then(function(data) {
+        //         notifyResult(data.success ? _('Validation succeeded') : _('Validation failed'), data, data.success ? 'info' : 'error');
+        //     });
+        // };
 
         return m.render();
     }

@@ -79,6 +79,13 @@ To disable it:
 
 When disabled, the init script leaves `/etc/squid/squid.conf` untouched and refuses reload-triggered apply operations.
 
+Use the init script itself for service restarts and stops. Do not call the helper with an init-script path argument. These are the valid service commands:
+
+```sh
+/etc/init.d/squid-profiles restart
+/etc/init.d/squid-profiles stop
+```
+
 ## What It Does
 
 - Lists detected machines from OpenWrt DHCP leases and saved UCI assignments.
@@ -107,6 +114,14 @@ The main UCI sections are:
 - `vm`: device IP, hostname, VLAN or LAN label and assigned profiles. DHCP-discovered devices without a direct profile stay display-only.
 
 When you press the standard LuCI **Save & Apply** button, OpenWrt commits the UCI data first, then the helper regenerates `/etc/squid/squid.conf`, `/etc/squid/domains/*.txt` and `/etc/squid/maps/*.conf` after validating the configuration with `squid -k parse`.
+
+If you edit LuCI menu metadata such as `files/usr/share/luci/menu.d/luci-app-squid-profiles.json` in the test platform, clear the cached LuCI menu index inside the container:
+
+```sh
+rm -f /tmp/luci-indexcache*.json
+```
+
+Restarting `uhttpd` by itself is not enough; LuCI reuses `/tmp/luci-indexcache*.json` until that cache file is removed, and it recreates the index on the next page load.
 
 ## Domain Syntax
 
