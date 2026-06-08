@@ -45,7 +45,6 @@ write_skeleton() {
 visible_hostname openwrt-squid-profiles
 http_port 3128
 
-acl localhost src 127.0.0.1/32 ::1
 acl SSL_ports port 443
 acl Safe_ports port 80
 acl Safe_ports port 443
@@ -97,7 +96,7 @@ shutdown_lifetime 3 seconds
 # Logs: keep access log disabled by default on OpenWrt
 # ----------------------------
 
-access_log stdio:/tmp/squid_access.log squid
+access_log none
 cache_log /tmp/squid_cache.log
 logfile_rotate 3
 
