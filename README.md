@@ -48,15 +48,16 @@ LuCI exposes one application group under **Services -> Squid Profiles** with thr
 
 ## Storage and Validation Model
 
-The plugin keeps its source of truth in UCI, under `/etc/config/squid_profiles`.
-The runtime Squid files are generated from that config and written to `/etc/squid`.
+The plugin keeps explicit operator intent in UCI, under `/etc/config/squid_profiles`.
+OpenWrt-discovered DHCP leases and LAN/VLAN interfaces are shown in LuCI, but they are only persisted when the operator assigns profiles to them.
+The runtime Squid files are generated from the explicit UCI mappings and written to `/etc/squid`.
 
 UCI sections are:
 
-- `core` (`globals` section type): plugin-wide switch state.
-- `network` (`network` section type): covered CIDR, VLAN/LAN label and optional description.
+- `core` (`globals` section type): plugin-wide switch state. `squid_profiles.core.enabled` is the real service toggle and the helper exposes `enable` and `disable` subcommands to update it from SSH.
+- `network` (`network` section type): covered CIDR, VLAN/LAN label, optional description and explicit profile assignments for whole networks. Custom CIDR rows can stay persisted even without a profile, but they are ignored by the Squid generator until at least one profile is assigned.
 - `profile` (`profile` section type): profile name, description, allow/deny domains, edit mode.
-- `vm` (`vm` section type): machine IP, hostname, VLAN/LAN label and assigned profiles.
+- `vm` (`vm` section type): machine IP, hostname, VLAN/LAN label and assigned profiles. DHCP-discovered machines without a direct profile assignment stay display-only.
 
 The generated runtime tree is:
 
@@ -67,12 +68,15 @@ The generated runtime tree is:
 └── maps/
 ```
 
-Validation is always done before apply:
+Validation is always done before the standard LuCI Save & Apply path reloads Squid:
 
 1. UCI structure and domain syntax are checked by `/usr/libexec/squid-profiles validate`.
 2. The helper generates a temporary Squid config.
 3. Squid validates it with `squid -k parse`.
 4. Only then the helper copies the config, creates a dated backup and reloads Squid.
+5. OpenWrt's `Save & Apply` triggers the helper through the `squid_profiles` procd reload hook.
+
+Detected devices and OpenWrt interfaces are not written to UCI unless you assign profiles to them. This keeps `/etc/config/squid_profiles` focused on explicit operator policy.
 
 For SSH work, prefer the helper and `uci` commands:
 
@@ -160,7 +164,7 @@ It declares:
 ```make
 PKG_NAME:=luci-app-squid-profiles
 PKG_VERSION:=0.1.0
-PKG_RELEASE:=2
+PKG_RELEASE:=5
 PKG_LICENSE:=BSD-2-Clause
 PKG_LICENSE_FILES:=LICENSE
 PKGARCH:=all
@@ -323,6 +327,21 @@ It exposes:
 
 Mounted development paths are file-level mounts for the LuCI menu, controller, RPC ACL, helper, init script and view directory. Runtime data uses directory mounts for `/etc/squid`, `/etc/config` and `/tmp`; the test entrypoint copies the image default OpenWrt config files into the mounted `/etc/config` directory if they are missing. This keeps the base LuCI installation from the image intact while local plugin edits remain visible without rebuilding the package.
 
+If you change `files/usr/share/luci/menu.d/luci-app-squid-profiles.json`, delete the LuCI menu cache first:
+
+```sh
+podman exec -it openwrt-squid-profile-ui sh -lc 'rm -f /tmp/luci-indexcache*.json && /etc/init.d/uhttpd restart && /etc/init.d/rpcd restart'
+```
+
+
+Restarting `uhttpd` alone does not rebuild the cached LuCI menu index. LuCI recreates it on the next page load after the cache file is removed. If the browser still shows the old menu, do a hard reload or open LuCI in a private window. The helper itself is only invoked as:
+
+```sh
+/usr/libexec/squid-profiles init|generate|validate|apply|enable|disable|prune
+```
+
+Do not pass init script paths to the helper. Service control stays on `/etc/init.d/squid-profiles restart|stop`.
+
 ## Debug Commands
 
 Inside OpenWrt or the Podman container:
@@ -330,6 +349,7 @@ Inside OpenWrt or the Podman container:
 ```sh
 /usr/libexec/squid-profiles init
 /usr/libexec/squid-profiles validate
+/usr/libexec/squid-profiles prune
 /usr/libexec/squid-profiles apply
 squid -k parse
 squid -k reconfigure

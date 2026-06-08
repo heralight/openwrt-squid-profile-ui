@@ -59,6 +59,33 @@ On first run, the plugin ensures this layout exists:
 
 If an existing `squid.conf` is present and not managed by the plugin, it is backed up with a dated filename before any new skeleton is created.
 
+## Enable Or Disable The Service
+
+The helper exposes explicit `enable` and `disable` subcommands. Both toggle `squid_profiles.core.enabled`, which is the real service switch used by the init script.
+
+To enable the plugin-managed Squid generation:
+
+```sh
+/usr/libexec/squid-profiles enable
+/etc/init.d/squid-profiles restart
+```
+
+To disable it:
+
+```sh
+/usr/libexec/squid-profiles disable
+/etc/init.d/squid-profiles stop
+```
+
+When disabled, the init script leaves `/etc/squid/squid.conf` untouched and refuses reload-triggered apply operations.
+
+Use the init script itself for service restarts and stops. Do not call the helper with an init-script path argument. These are the valid service commands:
+
+```sh
+/etc/init.d/squid-profiles restart
+/etc/init.d/squid-profiles stop
+```
+
 ## What It Does
 
 - Lists detected machines from OpenWrt DHCP leases and saved UCI assignments.
@@ -66,6 +93,7 @@ If an existing `squid.conf` is present and not managed by the plugin, it is back
 - Lets you map OpenWrt LAN/VLAN networks or additional custom CIDRs to one or more profiles.
 - Lets you create Squid profiles with either list-based editing or a full-text rules mode.
 - Validates the generated Squid configuration with `squid -k parse` before applying changes.
+- Keeps OpenWrt-discovered devices and interfaces display-only until you explicitly assign profiles to them.
 
 The LuCI application appears under **Services -> Squid Profiles** with three tabs:
 
@@ -75,17 +103,25 @@ The LuCI application appears under **Services -> Squid Profiles** with three tab
 
 ## Data Model
 
-The plugin stores its source configuration in `/etc/config/squid_profiles`.
+The plugin stores explicit operator policy in `/etc/config/squid_profiles`.
 It does not treat `/etc/squid/squid.conf` as the editable source of truth.
 
 The main UCI sections are:
 
 - `core`: global plugin state.
-- `network`: covered CIDR, VLAN or LAN label and optional description.
+- `network`: covered CIDR, VLAN or LAN label, optional description and explicit profile assignments for whole networks. Custom CIDR rows can stay in UCI without a profile, but the Squid helper ignores them until you assign at least one profile.
 - `profile`: profile name, description, allow/deny domains and editing mode.
-- `vm`: device IP, hostname, VLAN or LAN label and assigned profiles.
+- `vm`: device IP, hostname, VLAN or LAN label and assigned profiles. DHCP-discovered devices without a direct profile stay display-only.
 
-When you press **Validate** or **Apply**, LuCI saves the UCI data first, then the helper regenerates `/etc/squid/squid.conf`, `/etc/squid/domains/*.txt` and `/etc/squid/maps/*.conf`.
+When you press the standard LuCI **Save & Apply** button, OpenWrt commits the UCI data first, then the helper regenerates `/etc/squid/squid.conf`, `/etc/squid/domains/*.txt` and `/etc/squid/maps/*.conf` after validating the configuration with `squid -k parse`.
+
+If you edit LuCI menu metadata such as `files/usr/share/luci/menu.d/luci-app-squid-profiles.json` in the test platform, clear the cached LuCI menu index inside the container:
+
+```sh
+rm -f /tmp/luci-indexcache*.json
+```
+
+Restarting `uhttpd` by itself is not enough; LuCI reuses `/tmp/luci-indexcache*.json` until that cache file is removed, and it recreates the index on the next page load.
 
 ## Domain Syntax
 
@@ -112,7 +148,7 @@ deny blocked.example.net
 
 ### 1. Home network with a guest VLAN
 
-Use the detected OpenWrt guest network in `LAN/VLAN Mapping`, then assign a restrictive profile to the whole network or to selected guest devices in `Devices`.
+Use the detected OpenWrt guest network in `LAN/VLAN Mapping`, then assign a restrictive profile to the whole network or to selected guest devices in `Devices`. OpenWrt-discovered rows remain display-only until you assign profiles to them.
 
 ### 2. Family-safe browsing policy
 
@@ -164,9 +200,9 @@ The following reference screenshots are included with the repository.
 2. Create one or more profiles in `Profiles`.
 3. Review detected OpenWrt networks in `LAN/VLAN Mapping` and assign network-wide profiles if needed.
 4. Assign per-IP profiles to detected machines in `Devices`.
-5. Click **Validate configuration**.
+5. Click **Validate configuration** if you want a manual parse check.
 6. Review the Squid output.
-7. Click **Apply** only after validation succeeds.
+7. Click the standard **Save & Apply** button only after validation succeeds.
 
 ## Validation And Apply
 
@@ -210,6 +246,7 @@ Then validate and apply:
 
 ```sh
 /usr/libexec/squid-profiles validate
+/usr/libexec/squid-profiles prune
 /usr/libexec/squid-profiles apply
 ```
 

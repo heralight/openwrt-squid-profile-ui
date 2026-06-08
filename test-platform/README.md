@@ -29,6 +29,14 @@ podman exec -it openwrt-squid-profile-ui ash
 - `./runtime/config` -> `/etc/config`
 - `./runtime/log` -> `/tmp`
 
+Menu metadata is mounted too, so changes to `files/usr/share/luci/menu.d/luci-app-squid-profiles.json` need the LuCI menu cache to be cleared:
+
+```sh
+rm -f /tmp/luci-indexcache*.json && /etc/init.d/uhttpd restart && /etc/init.d/rpcd restart
+```
+
+Restarting `uhttpd` alone does not rebuild the cached menu index. LuCI recreates it on the next page load after the cache file is removed. If LuCI still shows stale navigation, hard-refresh the browser or clear the browser cache for `http://localhost:8080/`.
+
 ## Useful commands inside the container
 
 ```sh
@@ -36,6 +44,8 @@ podman exec -it openwrt-squid-profile-ui ash
 /usr/libexec/squid-profiles init
 /usr/libexec/squid-profiles validate
 /usr/libexec/squid-profiles apply
+/etc/init.d/squid-profiles restart
+/etc/init.d/squid-profiles stop
 squid -k parse
 squid -k reconfigure
 logread

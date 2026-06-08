@@ -50,20 +50,60 @@ acl Safe_ports port 80
 acl Safe_ports port 443
 acl CONNECT method CONNECT
 
+# ----------------------------
+# Security rules
+# ----------------------------
+
+http_access allow localhost
 http_access deny !Safe_ports
 http_access deny CONNECT !SSL_ports
 
+# Per-network and per-profile rules are generated in the included map file.
 include INCLUDE_PATH
 
+# Deny everything else.
 http_access deny all
+
+# ----------------------------
+# Privacy / hardening
+# ----------------------------
+
+via off
+forwarded_for delete
+request_header_access X-Forwarded-For deny all
+request_header_access Via deny all
+
+# ----------------------------
+# Cache: disabled for low storage OpenWrt
+# ----------------------------
 
 cache deny all
 cache_mem 8 MB
 maximum_object_size 0 KB
+cache_effective_user squid
+
+# ----------------------------
+# Timeouts
+# ----------------------------
+
+connect_timeout 20 seconds
+request_timeout 60 seconds
+read_timeout 120 seconds
+shutdown_lifetime 3 seconds
+
+
+# ----------------------------
+# Logs: keep access log disabled by default on OpenWrt
+# ----------------------------
 
 access_log none
-cache_log /dev/null
+cache_log /tmp/squid_cache.log
 logfile_rotate 3
+
+# ----------------------------
+# Refresh patterns
+# Keep original safe defaults
+# ----------------------------
 
 refresh_pattern ^ftp:       1440    20%     10080
 refresh_pattern ^gopher:    1440    0%      1440
@@ -202,6 +242,13 @@ collect_profile_domains() {
 	section="$1"
 	mode="$(uci -q get "$CONFIG.$section.edit_mode" || printf 'lists')"
 	if [ "$mode" = "text" ]; then
+		allow="$(uci -q get "$CONFIG.$section.allow_domain" || true)"
+		deny="$(uci -q get "$CONFIG.$section.deny_domain" || true)"
+		if [ -n "$allow" ] || [ -n "$deny" ]; then
+			printf '%s\n%s\n' "$allow" "$deny"
+			return 0
+		fi
+
 		allow=""
 		deny=""
 		raw="$(uci -q get "$CONFIG.$section.raw_rules" || true)"
@@ -262,6 +309,52 @@ validate_uci() {
 	done
 }
 
+ensure_core_section() {
+	need_cmd uci
+	if ! uci -q get "$CONFIG.core" >/dev/null 2>&1; then
+		uci batch <<EOF
+set $CONFIG.core=globals
+set $CONFIG.core.enabled='1'
+commit $CONFIG
+EOF
+	fi
+}
+
+set_enabled_state() {
+	state="$1"
+	case "$state" in
+		0|1) ;;
+		*) fail "invalid enabled state: $state" ;;
+	esac
+	ensure_core_section
+	uci set "$CONFIG.core.enabled=$state"
+	uci commit "$CONFIG"
+	log "Set $CONFIG.core.enabled to $state"
+}
+
+prune_config() {
+	need_cmd uci
+
+	for section in $(uci show "$CONFIG" 2>/dev/null | sed -n "s/^$CONFIG\.\([^.=]*\)=vm$/\1/p"); do
+		profiles="$(uci -q get "$CONFIG.$section.profile" || true)"
+		if [ -z "$profiles" ]; then
+			uci delete "$CONFIG.$section"
+			log "Pruned unmapped device section: $section"
+		fi
+	done
+
+	for section in $(uci show "$CONFIG" 2>/dev/null | sed -n "s/^$CONFIG\.\([^.=]*\)=network$/\1/p"); do
+		source="$(uci -q get "$CONFIG.$section.source" || printf 'custom')"
+		profiles="$(uci -q get "$CONFIG.$section.profile" || true)"
+		if [ "$source" = "system" ] && [ -z "$profiles" ]; then
+			uci delete "$CONFIG.$section"
+			log "Pruned unmapped system network section: $section"
+		fi
+	done
+
+	uci commit "$CONFIG"
+}
+
 write_domain_file() {
 	file="$1"; shift; : > "$file"
 	for domain in "$@"; do [ -n "$domain" ] && printf '%s\n' "$domain" >> "$file"; done
@@ -273,6 +366,8 @@ write_map_file() {
 	: > "$target"
 	for net in $(uci show "$CONFIG" 2>/dev/null | sed -n "s/^$CONFIG\.\([^.=]*\)=network$/\1/p"); do
 		cidr="$(uci -q get "$CONFIG.$net.cidr" || uci -q get "$CONFIG.$net.subnet" || true)"
+		profiles="$(uci -q get "$CONFIG.$net.profile" || true)"
+		[ -n "$profiles" ] || continue
 		[ -n "$cidr" ] && printf 'acl squid_profiles_net_%s src %s\n' "$(normalize_name "$net")" "$(normalize_ipv4_cidr "$cidr")" >> "$target"
 	done
 	for section in $(uci show "$CONFIG" 2>/dev/null | sed -n "s/^$CONFIG\.\([^.=]*\)=profile$/\1/p"); do
@@ -373,5 +468,8 @@ case "${1:-}" in
 	generate) init_tree; validate_uci; emit_profile_files; write_skeleton "$SQUID_CONF" ;;
 	validate) init_tree; validate_uci; emit_profile_files; write_skeleton "$TMP_CONF"; validate_squid "$TMP_CONF" ;;
 	apply) apply_config ;;
-	*) printf 'Usage: %s init|generate|validate|apply\n' "$0"; exit 2 ;;
+	enable) set_enabled_state 1 ;;
+	disable) set_enabled_state 0 ;;
+	prune) prune_config ;;
+	*) printf 'Usage: %s init|generate|validate|apply|enable|disable|prune\n' "$0"; exit 2 ;;
 esac
