@@ -45,25 +45,66 @@ write_skeleton() {
 visible_hostname openwrt-squid-profiles
 http_port 3128
 
+acl localhost src 127.0.0.1/32 ::1
 acl SSL_ports port 443
 acl Safe_ports port 80
 acl Safe_ports port 443
 acl CONNECT method CONNECT
 
+# ----------------------------
+# Security rules
+# ----------------------------
+
+http_access allow localhost
 http_access deny !Safe_ports
 http_access deny CONNECT !SSL_ports
 
+# Per-network and per-profile rules are generated in the included map file.
 include INCLUDE_PATH
 
+# Deny everything else.
 http_access deny all
+
+# ----------------------------
+# Privacy / hardening
+# ----------------------------
+
+via off
+forwarded_for delete
+request_header_access X-Forwarded-For deny all
+request_header_access Via deny all
+
+# ----------------------------
+# Cache: disabled for low storage OpenWrt
+# ----------------------------
 
 cache deny all
 cache_mem 8 MB
 maximum_object_size 0 KB
+cache_effective_user squid
 
-access_log none
-cache_log /dev/null
+# ----------------------------
+# Timeouts
+# ----------------------------
+
+connect_timeout 20 seconds
+request_timeout 60 seconds
+read_timeout 120 seconds
+shutdown_lifetime 3 seconds
+
+
+# ----------------------------
+# Logs: keep access log disabled by default on OpenWrt
+# ----------------------------
+
+access_log stdio:/tmp/squid_access.log squid
+cache_log /tmp/squid_cache.log
 logfile_rotate 3
+
+# ----------------------------
+# Refresh patterns
+# Keep original safe defaults
+# ----------------------------
 
 refresh_pattern ^ftp:       1440    20%     10080
 refresh_pattern ^gopher:    1440    0%      1440
