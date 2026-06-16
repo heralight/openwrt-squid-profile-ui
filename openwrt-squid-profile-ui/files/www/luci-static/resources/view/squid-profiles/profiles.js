@@ -2,7 +2,7 @@
 'require view';
 'require form';
 'require uci';
-'require request';
+'require fs';
 'require ui';
 
 function splitText(value) {
@@ -98,6 +98,10 @@ function currentTextRules(sectionId) {
     var allow = readListOption(sectionId, 'allow_domain');
     var deny = readListOption(sectionId, 'deny_domain');
     var raw = String(uci.get('squid_profiles', sectionId, 'raw_rules') || '').trim();
+    var mode = normalizeMode(uci.get('squid_profiles', sectionId, 'edit_mode'));
+
+    if (mode === 'text' && raw)
+        return raw;
 
     if (allow.length || deny.length)
         return joinRulesFromLists(allow, deny);
@@ -123,31 +127,36 @@ function currentRuleSet(sectionId) {
     };
 }
 
-function responseJson(res) {
-    if (res && typeof res.json === 'function') {
-        try {
-            return res.json();
-        }
-        catch (e) {
-            return Promise.resolve({
-                success: false,
-                code: 500,
-                message: e.message || String(e),
-                output: res.responseText || ''
-            });
-        }
-    }
-    return (res || {}).json || {};
+function execResult(res) {
+    var stdout = res && res.stdout ? res.stdout : '';
+    var stderr = res && res.stderr ? res.stderr : '';
+    var output = stdout && stderr ? stdout + '\n' + stderr : (stdout || stderr);
+    var code = res && typeof res.code === 'number' ? res.code : 1;
+
+    return {
+        success: code === 0,
+        code: code,
+        message: output,
+        output: output
+    };
 }
 
 function callAction(action) {
-    return request.get(L.url('admin/services/squid-profiles/' + action), { timeout: 30000 }).then(responseJson);
+    return fs.exec('/usr/libexec/squid-profiles', [ action ]).then(execResult).catch(function(e) {
+        var message = e && e.message ? e.message : String(e);
+        return {
+            success: false,
+            code: 1,
+            message: message,
+            output: message
+        };
+    });
 }
 
 function notifyResult(title, data, level) {
     ui.addNotification(null, E('div', {}, [
         E('p', {}, [ title ]),
-        data && data.output ? E('pre', { 'style': 'white-space:pre-wrap' }, [ data.output ]) : ''
+        data && (data.output || data.message) ? E('pre', { 'style': 'white-space:pre-wrap' }, [ data.output || data.message ]) : ''
     ]), level || 'info');
 }
 
@@ -179,7 +188,13 @@ function syncMode(section, sectionId, value) {
         var text = currentTextRules(sectionId);
         if (rawField)
             rawField.setValue(text);
-        uci.unset('squid_profiles', sectionId, 'raw_rules');
+        uci.set('squid_profiles', sectionId, 'raw_rules', text);
+        uci.unset('squid_profiles', sectionId, 'allow_domain');
+        uci.unset('squid_profiles', sectionId, 'deny_domain');
+        if (allowField)
+            allowField.setValue([]);
+        if (denyField)
+            denyField.setValue([]);
     }
     else {
         var parsed = parseRulesText(rawField ? rawField.getValue() : currentTextRules(sectionId));
@@ -202,6 +217,57 @@ function syncMode(section, sectionId, value) {
         uci.unset('squid_profiles', sectionId, 'allow_text');
         uci.unset('squid_profiles', sectionId, 'deny_text');
     }
+}
+
+function isServiceEnabled() {
+    return String(uci.get('squid_profiles', 'core', 'enabled') || '1') === '1';
+}
+
+function serviceBadge() {
+    var enabled = isServiceEnabled();
+    return E('span', {
+        'style': [
+            'display:inline-block',
+            'min-width:7em',
+            'padding:0.25em 0.6em',
+            'border-radius:4px',
+            'font-weight:600',
+            'background:' + (enabled ? '#d7f0dd' : '#f4d2d2'),
+            'color:' + (enabled ? '#135b26' : '#7a1d1d')
+        ].join(';')
+    }, [ enabled ? _('Enabled') : _('Disabled') ]);
+}
+
+function addActionSection(map) {
+    var actions = map.section(form.NamedSection, 'core', 'globals', _('Actions'));
+    actions.addremove = false;
+
+    var status = actions.option(form.DummyValue, '_service_enabled', _('squid_profiles service'));
+    status.cfgvalue = function() {
+        return serviceBadge();
+    };
+
+    var validate = actions.option(form.Button, '_validate', _('Validate'));
+    validate.inputstyle = 'apply';
+    validate.description = _('/usr/libexec/squid-profiles validate');
+    validate.onclick = function() {
+        return map.save().then(function() {
+            return callAction('validate');
+        }).then(function(data) {
+            notifyResult(data.success ? _('Validation succeeded') : _('Validation failed'), data, data.success ? 'info' : 'error');
+        });
+    };
+
+    var apply = actions.option(form.Button, '_apply_squid', _('Apply Squid'));
+    apply.inputstyle = 'apply';
+    apply.description = _('/usr/libexec/squid-profiles apply');
+    apply.onclick = function() {
+        return map.save().then(function() {
+            return callAction('apply');
+        }).then(function(data) {
+            notifyResult(data.success ? _('Squid apply succeeded') : _('Squid apply failed'), data, data.success ? 'info' : 'error');
+        });
+    };
 }
 
 function validateDomainSet(sectionId) {
@@ -341,13 +407,17 @@ return view.extend({
         };
         rawRules.write = function(sectionId, value) {
             var parsed = parseRulesText(value);
+            var text = String(value || '').trim();
 
             if (parsed.error)
                 throw new Error(parsed.error);
 
-            uci.set('squid_profiles', sectionId, 'allow_domain', parsed.allow);
-            uci.set('squid_profiles', sectionId, 'deny_domain', parsed.deny);
-            uci.unset('squid_profiles', sectionId, 'raw_rules');
+            if (text)
+                uci.set('squid_profiles', sectionId, 'raw_rules', text);
+            else
+                uci.unset('squid_profiles', sectionId, 'raw_rules');
+            uci.unset('squid_profiles', sectionId, 'allow_domain');
+            uci.unset('squid_profiles', sectionId, 'deny_domain');
             uci.unset('squid_profiles', sectionId, 'allow_text');
             uci.unset('squid_profiles', sectionId, 'deny_text');
         };
@@ -450,6 +520,8 @@ return view.extend({
         //         notifyResult(data.success ? _('Profile validation succeeded') : _('Profile validation failed'), data, data.success ? 'info' : 'error');
         //     });
         // };
+
+        addActionSection(m);
 
         return m.render();
     }

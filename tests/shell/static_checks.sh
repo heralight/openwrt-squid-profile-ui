@@ -6,12 +6,17 @@ ROOT="$(CDPATH= cd -- "$(dirname -- "$0")/../.." && pwd)"
 HELPER="$ROOT/openwrt-squid-profile-ui/files/usr/libexec/squid-profiles"
 UCI_DEFAULTS="$ROOT/openwrt-squid-profile-ui/files/etc/uci-defaults/90_squid_profiles"
 INITD="$ROOT/openwrt-squid-profile-ui/files/etc/init.d/squid-profiles"
+FUNCTIONAL_TESTS="$ROOT/tests/shell/helper_functional_tests.sh"
+TEST_PLATFORM_FUNCTIONAL_TESTS="$ROOT/tests/shell/test_platform_functional_checks.sh"
+TEST_SQUID="$ROOT/test-platform/overlay/usr/sbin/squid"
+TEST_SQUID_INIT="$ROOT/test-platform/overlay/etc/init.d/squid"
 WORKFLOW="$ROOT/.github/workflows/openwrt-package.yml"
 COMPOSE="$ROOT/test-platform/compose.yml"
+TEST_DOCKERFILE="$ROOT/test-platform/Dockerfile"
 
 fail() { printf 'FAIL: %s\n' "$*" >&2; exit 1; }
 
-for script in "$HELPER" "$UCI_DEFAULTS" "$INITD"; do
+for script in "$HELPER" "$UCI_DEFAULTS" "$INITD" "$FUNCTIONAL_TESTS" "$TEST_PLATFORM_FUNCTIONAL_TESTS" "$TEST_SQUID" "$TEST_SQUID_INIT"; do
 	[ -f "$script" ] || fail "missing script: $script"
 	sh -n "$script" || fail "shell syntax failed: $script"
 done
@@ -24,6 +29,8 @@ grep -q 'unique_backup_path' "$HELPER" || fail "helper does not define unique ba
 grep -q 'backup_current_config' "$HELPER" || fail "helper does not back up before apply"
 grep -q 'Backed up current Squid configuration before modification' "$HELPER" || fail "helper does not report per-apply backup path"
 grep -q 'squid -k parse' "$HELPER" || fail "helper does not run squid -k parse"
+grep -q 'SQUID_INIT="${SQUID_INIT:-/etc/init.d/squid}"' "$HELPER" || fail "helper does not target the Squid init script"
+grep -q '"$SQUID_INIT" restart' "$HELPER" || fail "helper does not restart Squid through init"
 grep -q 'squid -f "$SQUID_CONF" -k reconfigure' "$HELPER" || fail "helper does not reconfigure Squid"
 grep -q 'squid -f "$SQUID_CONF"' "$HELPER" || fail "helper does not start Squid when not running"
 grep -q 'access_log none' "$HELPER" || fail "helper should avoid tmp access log writes"
@@ -32,7 +39,9 @@ grep -q 'write_mime_conf' "$HELPER" || fail "helper does not create Squid MIME t
 grep -q 'collect_profile_domains' "$HELPER" || fail "helper does not support exclusive profile modes"
 grep -F -q 'normalize_domain' "$HELPER" || fail "helper does not normalize Squid wildcard syntax"
 grep -F -q 'case "$1" in ""|*"/"*|*" "*|*".."*|*.) return 1 ;; esac' "$HELPER" || fail "helper does not enforce basic domain syntax"
+grep -F -q ')+$' "$HELPER" || fail "helper domain regex is not anchored"
 if grep -q 'pinger_enable' "$HELPER"; then fail "helper should not emit pinger_enable on OpenWrt Squid"; fi
+grep -q '/etc/init.d/squid-profiles enable' "$UCI_DEFAULTS" || fail "uci-defaults does not enable squid-profiles service"
 
 grep -q 'luci-app-squid-profiles.json:/usr/share/luci/menu.d/luci-app-squid-profiles.json' "$COMPOSE" || fail "compose does not mount LuCI menu file"
 grep -q 'squid_profiles.lua:/usr/lib/lua/luci/controller/squid_profiles.lua' "$COMPOSE" || fail "compose does not mount LuCI controller"
@@ -40,6 +49,9 @@ grep -q 'view/squid-profiles:/www/luci-static/resources/view/squid-profiles' "$C
 grep -q 'squid-profiles:/etc/init.d/squid-profiles' "$COMPOSE" || fail "compose does not mount plugin init script"
 grep -q './runtime/etc-squid:/etc/squid' "$COMPOSE" || fail "compose does not mount Squid runtime tree"
 grep -q './runtime/config:/etc/config' "$COMPOSE" || fail "compose does not mount OpenWrt config runtime tree"
+grep -q 'COPY overlay/ /' "$TEST_DOCKERFILE" || fail "test Dockerfile does not copy the OpenWrt test overlay"
+grep -q 'squid mock parse OK' "$TEST_SQUID" || fail "test Squid mock does not report parse success"
+grep -q '/usr/sbin/squid -f /etc/squid/squid.conf -k parse' "$TEST_SQUID_INIT" || fail "test Squid init mock does not parse before restart"
 
 grep -q 'openwrt/sdk:mediatek-mt7622-main' "$WORKFLOW" || fail "workflow does not use the direct OpenWrt SDK image"
 grep -q 'docker run --rm' "$WORKFLOW" || fail "workflow does not use the direct SDK container"
@@ -49,5 +61,7 @@ grep -q 'softprops/action-gh-release@v2' "$WORKFLOW" || fail "workflow does not 
 grep -F -q 'sdk-bin/packages/**/*.apk' "$WORKFLOW" || fail "workflow does not publish APK release assets"
 if grep -F -q '*.ipk' "$WORKFLOW"; then fail "workflow should not collect legacy package artifacts"; fi
 grep -q 'https://api.github.com/repos/${GITHUB_REPOSITORY}/releases/latest' "$ROOT/README.md" || fail "README does not document release-based wget retrieval"
+
+sh "$FUNCTIONAL_TESTS"
 
 printf 'shell static checks passed\n'

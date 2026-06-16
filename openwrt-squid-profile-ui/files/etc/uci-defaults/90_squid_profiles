@@ -11,6 +11,10 @@ fi
 
 "$HELPER" init
 
+if [ -x /etc/init.d/squid-profiles ]; then
+	/etc/init.d/squid-profiles enable
+fi
+
 if ! uci -q get squid_profiles.core >/dev/null 2>&1; then
 	uci batch <<'EOUCI'
 set squid_profiles.core=globals

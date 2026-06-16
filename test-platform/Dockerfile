@@ -9,6 +9,7 @@ RUN mkdir -p /var/lock /var/run /tmp/opkg-lists && \
     cp -a /etc/config /rom/etc-config-defaults || true
 
 COPY entrypoint.sh /usr/local/bin/openwrt-test-entrypoint
+COPY overlay/ /
 
 RUN chmod +x /usr/local/bin/openwrt-test-entrypoint
 

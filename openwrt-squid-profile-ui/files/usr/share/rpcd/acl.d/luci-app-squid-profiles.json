@@ -4,15 +4,21 @@
         "read": {
             "uci": [ "squid_profiles", "dhcp", "network" ],
             "file": {
-                "path": [ "/etc/squid" ]
+                "/etc/squid": [ "list" ],
+                "/etc/squid/*": [ "list", "read", "stat" ]
+            },
+            "ubus": {
+                "file": [ "list", "read", "stat" ]
             }
         },
         "write": {
             "uci": [ "squid_profiles" ],
             "file": {
-                "path": [ "/etc/squid" ]
+                "/usr/libexec/squid-profiles": [ "exec" ]
             },
-            "command": [ "/usr/libexec/squid-profiles", "/usr/sbin/squid" ]
+            "ubus": {
+                "file": [ "exec" ]
+            }
         }
     }
 }

@@ -4,6 +4,7 @@ set -eu
 
 SQUID_DIR="${SQUID_DIR:-/etc/squid}"
 SQUID_CONF="${SQUID_CONF:-$SQUID_DIR/squid.conf}"
+SQUID_INIT="${SQUID_INIT:-/etc/init.d/squid}"
 DOMAINS_DIR="$SQUID_DIR/domains"
 MAPS_DIR="$SQUID_DIR/maps"
 MIME_CONF="$SQUID_DIR/mime.conf"
@@ -190,10 +191,12 @@ normalize_domain() {
 }
 
 is_domain() {
+	check_domain=""
 	case "$1" in ""|*"/"*|*" "*|*".."*|*.) return 1 ;; esac
-	domain="$(normalize_domain "$1")"
-	case "$domain" in .*) domain="${domain#.}" ;; esac
-	printf '%s\n' "$domain" | grep -Eq '^[A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?(\.[A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?)+'
+	check_domain="$(normalize_domain "$1")"
+	case "$check_domain" in ""|*"/"*|*" "*|*".."*|*.|*[!A-Za-z0-9.-]*) return 1 ;; esac
+	case "$check_domain" in .*) check_domain="${check_domain#.}" ;; esac
+	printf '%s\n' "$check_domain" | grep -Eq '^[A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?(\.[A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?)+$'
 }
 
 is_ipv4_cidr() {
@@ -242,39 +245,39 @@ collect_profile_domains() {
 	section="$1"
 	mode="$(uci -q get "$CONFIG.$section.edit_mode" || printf 'lists')"
 	if [ "$mode" = "text" ]; then
-		allow="$(uci -q get "$CONFIG.$section.allow_domain" || true)"
-		deny="$(uci -q get "$CONFIG.$section.deny_domain" || true)"
-		if [ -n "$allow" ] || [ -n "$deny" ]; then
+		allow=""
+		deny=""
+		raw="$(uci -q get "$CONFIG.$section.raw_rules" || true)"
+		if [ -n "$raw" ]; then
+			while IFS= read -r line; do
+				line="$(printf '%s' "$line" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
+				case "$line" in
+					""|\#*) continue ;;
+					allow\ *)
+						domain="${line#allow }"
+						domain="$(normalize_domain "$domain")"
+						is_domain "$domain" || fail "invalid domain in profile $section raw rules: $domain"
+						allow="$allow $domain"
+					;;
+					deny\ *)
+						domain="${line#deny }"
+						domain="$(normalize_domain "$domain")"
+						is_domain "$domain" || fail "invalid domain in profile $section raw rules: $domain"
+						deny="$deny $domain"
+					;;
+					*)
+						fail "invalid rule syntax in profile $section raw rules: $line"
+					;;
+				esac
+			done <<EOF
+$raw
+EOF
 			printf '%s\n%s\n' "$allow" "$deny"
 			return 0
 		fi
 
-		allow=""
-		deny=""
-		raw="$(uci -q get "$CONFIG.$section.raw_rules" || true)"
-		while IFS= read -r line; do
-			line="$(printf '%s' "$line" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
-			case "$line" in
-				""|\#*) continue ;;
-				allow\ *)
-					domain="${line#allow }"
-					domain="$(normalize_domain "$domain")"
-					is_domain "$domain" || fail "invalid domain in profile $section raw rules: $domain"
-					allow="$allow $domain"
-				;;
-				deny\ *)
-					domain="${line#deny }"
-					domain="$(normalize_domain "$domain")"
-					is_domain "$domain" || fail "invalid domain in profile $section raw rules: $domain"
-					deny="$deny $domain"
-				;;
-				*)
-					fail "invalid rule syntax in profile $section raw rules: $line"
-				;;
-			esac
-		done <<EOF
-$raw
-EOF
+		allow="$(uci -q get "$CONFIG.$section.allow_domain" || true)"
+		deny="$(uci -q get "$CONFIG.$section.deny_domain" || true)"
 		printf '%s\n%s\n' "$allow" "$deny"
 		return 0
 	fi
@@ -397,6 +400,7 @@ write_map_file() {
 			[ -s "$domains_dir/$id.allow.txt" ] && printf 'http_access allow device_%s profile_%s_allow\n' "$(normalize_name "$ip")" "$id" >> "$target"
 		done
 	done
+	return 0
 }
 
 emit_profile_files() {
@@ -444,6 +448,21 @@ validate_squid() {
 	squid -f "$config" -k parse
 }
 
+restart_squid() {
+	if [ -x "$SQUID_INIT" ]; then
+		"$SQUID_INIT" restart || fail "Squid service restart failed: $SQUID_INIT restart"
+		log "Restarted Squid service: $SQUID_INIT restart"
+		return 0
+	fi
+
+	if squid -f "$SQUID_CONF" -k reconfigure; then
+		log "Reconfigured running Squid instance"
+	else
+		log "Squid was not running; starting Squid"
+		squid -f "$SQUID_CONF"
+	fi
+}
+
 apply_config() {
 	init_tree
 	validate_uci
@@ -454,19 +473,14 @@ apply_config() {
 	write_skeleton "$FINAL_CONF" "$MAPS_DIR/10-profiles.conf"
 	validate_squid "$FINAL_CONF"
 	backup_and_replace_if_changed "$FINAL_CONF" "$SQUID_CONF" "Squid configuration"
-	if squid -f "$SQUID_CONF" -k reconfigure; then
-		log "Reconfigured running Squid instance"
-	else
-		log "Squid was not running; starting Squid"
-		squid -f "$SQUID_CONF"
-	fi
+	restart_squid
 	log "Applied Squid configuration: $SQUID_CONF"
 }
 
 case "${1:-}" in
 	init) init_tree ;;
 	generate) init_tree; validate_uci; emit_profile_files; write_skeleton "$SQUID_CONF" ;;
-	validate) init_tree; validate_uci; emit_profile_files; write_skeleton "$TMP_CONF"; validate_squid "$TMP_CONF" ;;
+	validate) init_tree; validate_uci; emit_profile_files; write_skeleton "$TMP_CONF" "$STAGE_MAPS/10-profiles.conf"; validate_squid "$TMP_CONF" ;;
 	apply) apply_config ;;
 	enable) set_enabled_state 1 ;;
 	disable) set_enabled_state 0 ;;
