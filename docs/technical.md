@@ -28,6 +28,7 @@ Typical field:
 - `enabled`: `1` or `0`
 
 This is the real service toggle. The helper exposes `enable` and `disable` subcommands to update this field from SSH, and the init script reads this value to decide whether it may apply or reload Squid.
+LuCI renders the current enabled/disabled state in each Squid Profiles tab so a disabled service is visible before validation or apply.
 
 ### `network`
 
@@ -61,6 +62,8 @@ The UI keeps `lists` and `text` exclusive:
 - in `lists` mode, the dynamic lists are authoritative
 - in `text` mode, the raw text block is authoritative
 - switching mode converts the current source into the other representation
+
+When `edit_mode=text`, `raw_rules` is parsed first and list values are ignored unless the raw text is empty. This prevents stale list values from overriding the full-text policy. When `edit_mode=lists`, `raw_rules` is removed and the allow/deny lists become the source.
 
 ### `vm`
 
@@ -103,10 +106,18 @@ squid -k parse
 
 6. If parsing succeeds, back up the previous `/etc/squid/squid.conf` with a dated filename.
 7. Copy the new config into place.
-8. Reconfigure Squid.
+8. Restart Squid through `/etc/init.d/squid restart`.
 
 The current implementation backs up only files whose content changes, using the format `filename.YYYYMMDD-HHMMSS.bak`.
 This applies to the generated Squid config, the per-profile domain lists and the map files. If parsing fails, the helper stops and returns the full output to LuCI.
+
+If `/etc/init.d/squid` is not available, the helper falls back to `squid -k reconfigure` or starts Squid directly. OpenWrt installs use the init-script path.
+
+## LuCI Action Integration
+
+The JavaScript views call `/usr/libexec/squid-profiles validate` and `/usr/libexec/squid-profiles apply` through LuCI `fs.exec`, which uses rpcd `file.exec`. The package ACL grants exec permission for that helper and does not rely on legacy LuCI controller routes such as `/admin/services/squid-profiles/validate`.
+
+The Validate button reports the exact helper output. This is the primary UI path for validation errors such as invalid domains. For example, a leading apostrophe in `'.google.com` fails validation before Squid is restarted.
 
 ## OpenWrt Package
 
@@ -116,8 +127,8 @@ Package metadata:
 
 ```make
 PKG_NAME:=luci-app-squid-profiles
-PKG_VERSION:=0.1.0
-PKG_RELEASE:=7
+PKG_VERSION:=1.0
+PKG_RELEASE:=1
 PKG_LICENSE:=BSD-2-Clause
 PKG_LICENSE_FILES:=LICENSE
 PKGARCH:=all
@@ -167,6 +178,34 @@ openwrt/sdk:mediatek-mt7622-main
 ```
 
 The target is OpenWrt 25/APK only.
+
+Tag pushes matching `v*` publish a GitHub release with the generated APK and repository metadata. Version `1.0` is released with tag `v1.0`.
+
+## Functional Tests
+
+Static tests run the shell helper with mocked `uci`, Squid and init commands:
+
+```sh
+sh tests/shell/static_checks.sh
+node tests/js/static_checks.js
+```
+
+The live functional test runs against the Podman OpenWrt instance at `localhost:8080`:
+
+```sh
+sh tests/shell/test_platform_functional_checks.sh
+```
+
+It verifies LuCI-served JavaScript, rpcd `file.exec` calls for `validate` and `apply`, Save & Apply through `/sbin/reload_config`, service enablement, and generated Squid artifacts for `pc-dev` at `192.168.31.11`.
+
+The policy cases include:
+
+- `kids` text mode with `allow *.kk.com` normalized to `.kk.com` and `deny .voila.com`
+- list mode allow `.toto.com`
+- list mode allow `.titt.com`
+- full-text `.toto.com` updated to list-mode `de.toto.com`
+- list-mode `.titi.com` updated to full-text `de.titi.com`
+- invalid `'.google.com` rejected during validation
 
 ## SSH Workflows
 
@@ -218,3 +257,4 @@ This removes `vm` sections that no longer have a profile assignment and removes 
 - Do not add a second, divergent config source.
 - Keep validation in the helper, not only in the UI.
 - Keep the list/full-text profile modes exclusive.
+- Keep LuCI action buttons wired to rpcd `file.exec` so validation/apply output reaches the UI.

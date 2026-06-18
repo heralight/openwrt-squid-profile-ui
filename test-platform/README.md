@@ -1,6 +1,6 @@
 # Podman test environment
 
-This directory runs an OpenWrt rootfs container with the LuCI application mounted from the working tree. Plugin files are mounted individually so the base LuCI installation from the image remains available while local plugin edits are still visible without rebuilding an IPK.
+This directory runs an OpenWrt rootfs container with the LuCI application mounted from the working tree. Plugin files are mounted individually so the base LuCI installation from the image remains available while local plugin edits are still visible without rebuilding an APK.
 
 ## Start
 
@@ -29,6 +29,8 @@ podman exec -it openwrt-squid-profile-ui ash
 - `./runtime/config` -> `/etc/config`
 - `./runtime/log` -> `/tmp`
 
+The image also copies `overlay/`, including a deterministic Squid command and Squid init-script mock. The tests still run against the real OpenWrt container, LuCI static files, rpcd `/ubus`, UCI config, Save & Apply reload hooks and generated `/etc/squid` files.
+
 Menu metadata is mounted too, so changes to `files/usr/share/luci/menu.d/luci-app-squid-profiles.json` need the LuCI menu cache to be cleared:
 
 ```sh
@@ -47,6 +49,15 @@ Restarting `uhttpd` alone does not rebuild the cached menu index. LuCI recreates
 /etc/init.d/squid-profiles restart
 /etc/init.d/squid-profiles stop
 squid -k parse
-squid -k reconfigure
 logread
 ```
+
+## Functional test
+
+From the repository root, with the container running:
+
+```sh
+sh tests/shell/test_platform_functional_checks.sh
+```
+
+The test logs in to LuCI/rpcd on `localhost:8080`, calls `validate` and `apply` through `/usr/libexec/squid-profiles`, triggers Save & Apply with `/sbin/reload_config`, and verifies generated domain/map files for the `pc-dev` profile scenarios.
